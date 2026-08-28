@@ -170,13 +170,11 @@ def _pack_pairs_into_rows(
     for i in range(len(reads)):
         by_name.setdefault(reads[i].name, []).append(i)
 
+    # each unique fragment/singleton becomes one unit (iterate names, so a
+    # paired fragment is NEVER processed twice)
     units = []  # (name, [read_idxs], (cs, ce), group, sort)
-    unit_of: Dict[int, int] = {}
-    for i in range(len(reads)):
-        name = reads[i].name
-        if name in unit_of:
-            continue
-        idxs = [j for j in by_name[name] if j in valid]
+    for name, idxs_all in by_name.items():
+        idxs = [j for j in idxs_all if j in valid]
         if not idxs:
             continue
         if len(idxs) >= 2:
@@ -186,9 +184,6 @@ def _pack_pairs_into_rows(
             idxs = idxs[:1]
             cs, ce = clipped[idxs[0]]
         units.append((name, idxs, (cs, ce), group_keys[idxs[0]], sort_keys[idxs[0]]))
-        u = len(units) - 1
-        for j in idxs:
-            unit_of[j] = u
 
     labels: List = []
     for (name, idxs, _iv, g, _s) in units:
@@ -378,10 +373,12 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
     # IGV-style insert-size thresholds (blue = too short, red = too long).
     sizes = sorted(abs(r.insert_size) for r in reads if r.insert_size > 0)
     if sizes:
-        min_tlen = np.percentile(sizes, 10)
-        max_tlen = np.percentile(sizes, 90)
+        min_tlen = float(np.percentile(sizes, 10))
+        max_tlen = float(np.percentile(sizes, 90))
+        if max_tlen <= min_tlen:  # all inserts identical -> avoid degenerate norm
+            max_tlen = min_tlen + 1.0
     else:
-        min_tlen = max_tlen = 0
+        min_tlen = max_tlen = 0.0
 
     def color_by_strand(r):
         key = "forward" if not r.is_reverse else "reverse"
@@ -516,7 +513,6 @@ def draw_read_track(
     strand_colors = strand_colors or STRAND_COLORS
     base_colors = base_colors or BASE_COLORS
     color_fn = _read_colormap(color_by, colormap, reads, basemod_sites)
-    group_keys = [_read_group_key(r, group_by) for r in reads] if group_by != "none" else None
 
     squished = display_mode == "squished"
     full = display_mode == "full"

@@ -65,14 +65,18 @@ class Region:
     # constructors
     # ------------------------------------------------------------------ #
     @classmethod
-    def from_string(cls, text: str) -> "Region":
+    def from_string(cls, text: str, window: int = 100) -> "Region":
         """Parse a human-readable region.
 
-        Accepts strings such as ``chr1:1,000-2,000`` or ``11:1000-2000``
-        (1-based, inclusive). Commas and whitespace around coordinates are
-        ignored.
+        Accepts ``chr1:1,000-2,000`` (1-based, inclusive) or a centred
+        ``chr1:1,000`` (window bp each side). Commas and whitespace around
+        coordinates are ignored.
         """
         cleaned = re.sub(r"[\s_,]", "", text).strip()
+        # centred 'chr:pos' -> window around a 1-based position
+        centred = re.match(r"^(?P<chrom>[A-Za-z0-9_.]+):(?P<pos>\d+)$", cleaned)
+        if centred:
+            return cls.centered(centred.group("chrom"), int(centred.group("pos")), window)
         match = re.match(r"^(?P<chrom>[A-Za-z0-9_.]+):(?P<start>\d+)-(?P<end>\d+)$", cleaned)
         if not match:
             raise ValueError(

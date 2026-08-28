@@ -56,6 +56,14 @@ def test_region_coerce():
     assert Region.from_any(r) == r
 
 
+def test_region_centered_string():
+    # 'chr:pos' is a centred region (window bp each side), 1-based position
+    r = Region.from_string("chr1:1000")
+    assert r.chrom == "chr1"
+    assert r.start == 899 and r.end == 1100  # window 100 each side
+    assert r.length == 201
+
+
 def test_region_invalid():
     with pytest.raises(ValueError):
         Region("chr1", 500, 100)
@@ -166,6 +174,17 @@ def test_color_by_invalid_raises(tmp_path):
     view.add_reads(_data("sample.bam"), reference=_data("genome.fa"), color_by="bogus")
     with pytest.raises(ValueError):
         view.render()
+
+
+def test_color_by_insert_uniform_sizes_renders(tmp_path):
+    # degenerate insert sizes (vmin == vmax) must not raise / warn
+    out = tmp_path / "insert_color.png"
+    plot_view(
+        bam_path=_data("sample.bam"), region="chrTest:6,950-7,140",
+        color_by="insert", paint_base_letters=False, max_reads=60,
+        out_path=str(out), dpi=60, figsize=(8, 4),
+    )
+    assert out.exists() and out.stat().st_size > 0
 
 
 def test_downsampling_reduces_reads():
