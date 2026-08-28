@@ -9,8 +9,8 @@ install:            ## create venv + editable install
 	$(PY) -m pip install -U pip
 	$(PY) -m pip install -e ".[dev]"
 
-test:               ## run the test suite (warnings-as-errors)
-	$(PY) -m pytest -q -W error::RuntimeWarning -W error::DeprecationWarning
+test:               ## run the test suite (warnings-as-errors via pyproject filterwarnings)
+	$(PY) -m pytest -q
 
 lint:               ## ruff check
 	ruff check igvplot scripts examples

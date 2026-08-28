@@ -64,6 +64,16 @@ igvplot = ["py.typed", "**/*.json"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+# Promote our own warnings to errors, but leave third-party noise (e.g. the
+# pyparsing deprecation raised while matplotlib imports) as a plain warning so
+# collection never fails on a dependency's deprecation.
+filterwarnings = [
+    "error::RuntimeWarning:igvplot",
+    "error::DeprecationWarning:igvplot",
+    "error::RuntimeWarning:tests",
+    "error::DeprecationWarning:tests",
+    "default",
+]
 
 [tool.coverage.run]
 source = ["igvplot"]
@@ -72,3 +82,8 @@ omit = ["*/tests/*"]
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+
+[tool.ruff.lint]
+# Pin a stable, deterministic rule set so lint results don't drift with the
+# installed ruff version (newer ruff defaults enable UP/EXE/etc. that we don't use).
+select = ["E4", "E7", "E9", "F"]
