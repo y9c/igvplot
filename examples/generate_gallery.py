@@ -128,13 +128,13 @@ def color_mapq():
 
 
 def basemod():
-    """Strand-aware base-modification track + reads coloured by the mod they span."""
+    """Strand-aware base-modification track (m6A/m5C markers) over clean reads."""
     view = (
         GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 7))
         .add_base_mods({7000: (1, "m6A"), 7010: (-1, "m5C"), 7021: (1, "m6A")})
-        .add_reads(BAM, reference=REF, color_by="basemod")
+        .add_reads(BAM, reference=REF, color_by="strand", max_reads=120)
         .add_features(GB, min_feature_length=3)
-        .add_sites({7000: "SNP", 7010: "SNP", 7020: "DEL", 7030: "INS"})
+        .add_sites({7000: "C>T", 7010: "A>G", 7020: "Δ3bp", 7030: "+CC"})
     )
     save(view, "gallery_basemod.png", dpi=120)
 

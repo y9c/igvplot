@@ -433,10 +433,11 @@ class GenomeView:
                         zorder=3,
                     )
                 )
+            ax.axhline(0, color="#c9d1d9", lw=0.8, zorder=1)  # baseline
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(-0.2, 1.0)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=8)
+            ax.set_ylabel(label, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=0.4, kind="tads", draw=_draw))
         return self

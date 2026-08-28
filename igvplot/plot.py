@@ -1079,8 +1079,8 @@ def draw_base_mod_track(
     ax,
     mods: Dict[int, tuple],
     region: Region,
-    label_fontsize: float = 9.5,
-    marker_size: float = 60,
+    label_fontsize: float = 10.5,
+    marker_size: float = 90,
 ) -> None:
     """Draw a strand-aware base-modification track.
 
@@ -1100,7 +1100,7 @@ def draw_base_mod_track(
         ax.scatter([pos + 0.5], [0], marker=marker, c=[color], s=marker_size, zorder=4)
         ax.text(
             pos + 0.5,
-            0.55 if strand >= 0 else -0.15,
+            0.6 if strand >= 0 else -0.2,
             label,
             ha="center",
             va="bottom" if strand >= 0 else "top",
@@ -1110,7 +1110,7 @@ def draw_base_mod_track(
             zorder=5,
         )
     ax.set_xlim(region.start, region.end)
-    ax.set_ylim(-0.5, 1.0)
+    ax.set_ylim(-0.5, 1.1)
     ax.set_yticks([])
     ax.set_ylabel("bases", fontsize=_fs(11))
 

@@ -36,8 +36,8 @@ each paired fragment on a single joined row (IGV "view as pairs").
 
 ## Epigenetic base modifications
 
-Strand-aware m6A / m5C / … markers, with reads **coloured by the modification
-they span** (`color_by="basemod"`).
+Strand-aware m6A / m5C / … markers in a dedicated track (`add_base_mods`). Reads
+can be coloured by the modification they span (`color_by="basemod"`).
 
 ![base modifications](examples/gallery_basemod.png)
 
