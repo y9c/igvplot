@@ -404,3 +404,19 @@ def test_apply_theme_is_safe():
     from igvplot import apply_theme
     apply_theme()  # idempotent, must not raise
     apply_theme()
+
+
+def test_view_as_pairs_renders(tmp_path):
+    # IGV "view as pairs": paired mates are joined on one row
+    from igvplot import GenomeView
+    out = tmp_path / "pairs.png"
+    gv = GenomeView(region="chrTest:6,940-7,140", figsize=(10, 6))
+    gv.add_reads(
+        _data("sample.bam"),
+        reference=_data("genome.fa"),
+        link_mates=True,
+        view_as_pairs=True,
+        max_reads=120,
+    )
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0

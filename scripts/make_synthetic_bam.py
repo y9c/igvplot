@@ -188,8 +188,11 @@ def main():
         seg.reference_start = read_start
         seg.mapping_quality = mapq
         seg.cigar = cigar
-        if read_group:
-            seg.set_tag("RG", read_group)
+        # tag EVERY read with a read group so colouring by readgroup is
+        # meaningful (no un-tagged grey mass); spliced/pairs set their own.
+        if read_group is None:
+            read_group = f"lib{read_id % 2}"
+        seg.set_tag("RG", read_group)
         if insert_size:
             seg.template_length = insert_size
         records.append((read_start, seg))
@@ -307,9 +310,11 @@ def main():
     for k in range(6):
         add_read(6950 + 5 * k, READ_LEN, mapq=15 + (k % 3) * 10)
 
-    # properly-paired reads for mate linking / insert-size colouring
-    for k in range(10):
-        add_pair(6880 + 10 * k, 6900 + 10 * k, READ_LEN, read_group="paired", mapq=60)
+    # properly-paired reads for mate linking / insert-size colouring /
+    # IGV "view as pairs" (both mates placed in view, small inserts)
+    for k in range(14):
+        fs = 6940 + 8 * k
+        add_pair(fs, fs + 40, READ_LEN, read_group="paired", mapq=60)
 
     # soft-clipped reads to exercise the show_soft_clips path
     for k in range(8):

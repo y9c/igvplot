@@ -133,6 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--show-soft-clips", action="store_true", help="Draw soft-clipped ends as thin bars")
     p.add_argument("--sort-by", default="start", choices=["start", "strand", "mapq", "insert", "mate_start", "name"], help="Order reads within the view")
     p.add_argument("--display-mode", default="expanded", choices=["expanded", "squished", "full"], help="Read display mode")
+    p.add_argument("--view-as-pairs", action="store_true", help="Place each paired fragment on one row (IGV 'view as pairs')")
     p.add_argument("--show-insertion-text", action="store_true", help="Show inserted-base counts inline")
     p.add_argument("--show-deletion-text", action="store_true", help="Show deletion lengths inline")
     p.add_argument("--highlight-regions", default=None, help="BED file of (start,end) regions to shade across tracks")
@@ -202,6 +203,7 @@ def _common_kwargs(args, region, out_path, title=None, sites=None, sort_base_pos
         group_by=args.group_by,
         show_soft_clips=args.show_soft_clips,
         display_mode=args.display_mode,
+        view_as_pairs=args.view_as_pairs,
         sort_by=sort_by or args.sort_by,
         sort_base_pos=sort_base_pos,
         show_insertion_text=args.show_insertion_text,

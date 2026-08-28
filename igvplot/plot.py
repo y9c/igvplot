@@ -146,6 +146,84 @@ def pack_reads_into_rows(
     return mapping
 
 
+def _pack_pairs_into_rows(
+    reads: List[Read],
+    region: Region,
+    group_keys: Optional[List] = None,
+    sort_keys: Optional[List] = None,
+) -> Dict[int, int]:
+    """Return ``{read_index: row}`` for IGV's "view as pairs".
+
+    Unlike :func:`pack_reads_into_rows` (which packs each read independently),
+    mates that share a ``name`` are treated as one fragment and placed on the
+    SAME row, so a paired fragment renders as a single joined horizontal unit
+    (IGV "view as pairs"). Singleton reads are packed as normal.
+    """
+    clipped = []
+    for r in reads:
+        clipped.append((max(region.start, r.aleft), min(region.end, r.aright)))
+    valid = {i for i, (s, e) in enumerate(clipped) if e - s >= 1}
+    if group_keys is None:
+        group_keys = [None] * len(reads)
+    if sort_keys is None:
+        sort_keys = [0] * len(reads)
+
+    by_name: Dict[str, List[int]] = {}
+    for i in range(len(reads)):
+        by_name.setdefault(reads[i].name, []).append(i)
+
+    units = []  # (name, [read_idxs], (cs, ce), group, sort)
+    unit_of: Dict[int, int] = {}
+    for i in range(len(reads)):
+        name = reads[i].name
+        if name in unit_of:
+            continue
+        idxs = [j for j in by_name[name] if j in valid]
+        if not idxs:
+            continue
+        if len(idxs) >= 2:
+            cs = min(clipped[j][0] for j in idxs)
+            ce = max(clipped[j][1] for j in idxs)
+        else:
+            idxs = idxs[:1]
+            cs, ce = clipped[idxs[0]]
+        units.append((name, idxs, (cs, ce), group_keys[idxs[0]], sort_keys[idxs[0]]))
+        u = len(units) - 1
+        for j in idxs:
+            unit_of[j] = u
+
+    labels: List = []
+    for (name, idxs, _iv, g, _s) in units:
+        if g not in labels:
+            labels.append(g)
+    rank = {g: i for i, g in enumerate(labels)}
+
+    order = sorted(
+        range(len(units)),
+        key=lambda u: (rank[units[u][3]], units[u][4], units[u][2][0]),
+    )
+    row_right: List[int] = []
+    unit_row: Dict[int, int] = {}
+    for u in order:
+        cs, ce = units[u][2]
+        placed = False
+        for row, rt in enumerate(row_right):
+            if rt <= cs:
+                row_right[row] = ce
+                unit_row[u] = row
+                placed = True
+                break
+        if not placed:
+            row_right.append(ce)
+            unit_row[u] = len(row_right) - 1
+
+    mapping: Dict[int, int] = {}
+    for u, (name, idxs, _iv, _g, _s) in enumerate(units):
+        for j in idxs:
+            mapping[j] = unit_row[u]
+    return mapping
+
+
 def _first_pair_strand_key(r: Read) -> str:
     """Return 'forward'/'reverse' for the strand of the first-of-pair mate."""
     if r.pairend_first:
@@ -416,6 +494,7 @@ def draw_read_track(
     deletion_color: str = DELETION_COLOR,
     insertion_color: str = MISMATCH_INS_COLOR,
     display_mode: str = "expanded",
+    view_as_pairs: bool = False,
     highlight: Optional[set] = None,
     highlight_color: str = "#e67e22",
     show_all_bases: bool = False,
@@ -452,8 +531,12 @@ def draw_read_track(
 
     group_keys = [_read_group_key(r, group_by) for r in reads] if group_by != "none" else None
     sort_keys = [_read_sort_value(r, sort_by, sort_base_pos) for r in reads]
-    mapping = pack_reads_into_rows(reads, region, group_keys, sort_keys)
-    if full:
+    if view_as_pairs:
+        # pack each fragment (both mates) onto one row -> IGV "view as pairs"
+        mapping = _pack_pairs_into_rows(reads, region, group_keys, sort_keys)
+    else:
+        mapping = pack_reads_into_rows(reads, region, group_keys, sort_keys)
+    if full and not view_as_pairs:
         # one read per row, ordered by group then sort key
         labels = []
         if group_keys is not None:
@@ -655,17 +738,19 @@ def draw_read_track(
             if (name,) in done:
                 continue
             done.add((name,))
-            # choose midpoint for a gentle link
-            left_pt = (e1, row1) if e1 < e2 else (e2, row2)
-            right_pt = (s1, row1) if s1 > s2 else (s2, row2)
-            ax.plot(
-                [left_pt[0], right_pt[0]],
-                [left_pt[1], right_pt[1]],
-                color=mate_color,
-                lw=0.8,
-                alpha=0.7,
-                zorder=1,
-            )
+            # connect the two mates, with small orientation arrowheads so each
+            # fragment reads as a joined pair (IGV "view as pairs")
+            if e1 < e2:
+                xl, yl, left_r, right_r = e1, row1, r1, r2
+                xr, yr = s2, row2
+            else:
+                xl, yl, left_r, right_r = e2, row2, r2, r1
+                xr, yr = s1, row1
+            ax.plot([xl, xr], [yl, yr], color=mate_color, lw=1.0, alpha=0.85, zorder=1)
+            lm = ">" if not left_r.is_reverse else "<"
+            rm = "<" if not right_r.is_reverse else ">"
+            ax.plot([xl], [yl], marker=lm, ms=4.5, color=mate_color, zorder=2)
+            ax.plot([xr], [yr], marker=rm, ms=4.5, color=mate_color, zorder=2)
 
     n_used = len(used_rows) if used_rows else 0
     if n_used:

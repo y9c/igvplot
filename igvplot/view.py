@@ -344,7 +344,7 @@ class GenomeView:
                 ax.axvline(b, color=color, ls="--", lw=1.0, alpha=0.8, zorder=2)
                 ax.add_patch(
                     mpatches.Polygon(
-                        [[b - 2.5, 0.0], [b + 2.5, 0.0], [b, 1.0]],
+                        [[b - 6.0, 0.0], [b + 6.0, 0.0], [b, 1.0]],
                         closed=True,
                         facecolor=color,
                         edgecolor="none",
@@ -533,6 +533,7 @@ class GenomeView:
         group_by: str = "none",
         show_soft_clips: bool = False,
         display_mode: str = "expanded",
+        view_as_pairs: bool = False,
         highlight: Optional[set] = None,
         highlight_color: str = "#e67e22",
         sampling_window: int = 0,
@@ -593,6 +594,7 @@ class GenomeView:
                 group_by=group_by,
                 show_soft_clips=show_soft_clips,
                 display_mode=display_mode,
+                view_as_pairs=view_as_pairs,
                 highlight=highlight,
                 highlight_color=highlight_color,
                 show_all_bases=show_all_bases,
@@ -863,6 +865,7 @@ def plot_view(
     group_by: str = "none",
     show_soft_clips: bool = False,
     display_mode: str = "expanded",
+    view_as_pairs: bool = False,
     highlight: Optional[set] = None,
     show_legend: bool = True,
     sampling_window: int = 0,
@@ -986,6 +989,7 @@ def plot_view(
             group_by=group_by,
             show_soft_clips=show_soft_clips,
             display_mode=display_mode,
+            view_as_pairs=view_as_pairs,
             highlight=highlight,
             sampling_window=sampling_window,
             max_per_window=max_per_window,
