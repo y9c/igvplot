@@ -43,10 +43,13 @@ they span** (`color_by="basemod"`).
 
 ## Multi-sample comparison
 
-Overlay coverage from several BAMs on one axis, and shade regions of interest
-across every track.
+Compare several samples on shared axes — coverage overlay, **comparison sashimi**
+(`add_sashimi_overlay`), **strand-specific coverage** (`add_coverage_strands`),
+and **read overlay** (`add_reads_overlay`) — then shade regions of interest.
 
 ![multi-sample overlay](examples/gallery_overlay.png)
+
+![multi-sample comparison](examples/gallery_compare.png)
 
 ## Hi-C multi-track (pyGenomeTracks-style)
 
@@ -140,7 +143,8 @@ python examples/generate_gallery.py
 | **Region** | `chr1:1,000-2,000` (1-based inclusive), `(chrom, start, end)` tuple, or `Region`. Internal coords are **0-based, half-open**. |
 | **Read modes** | `color_by`: `strand` · `pairOrientation` · `readgroup` · `mapq` · `insert` · `proper` · `mate` · `basemod` · `none`. `group_by` cluster reads vertically; `sort_by`: `start` · `strand` · `mapq` · `insert` · `name`. |
 | **Display** | `display_mode`: `expanded` · `squished` · `full`. `show_all_bases` for base resolution, `show_soft_clips`, `link_mates`, `view_as_pairs` (IGV "view as pairs"), `highlight={...}`. |
-| **Tracks** | `.add_reads` · `.add_coverage` · `.add_coverage_overlay` · `.add_sashimi` · `.add_features` · `.add_sequence` · `.add_bed_features` · `.add_hic` · `.add_tads` · `.add_scale_bar` · `.add_sites` · `.add_base_mods` · `.add_highlight_regions` |
+| **Tracks** | `.add_reads` · `.add_reads_overlay` · `.add_coverage` · `.add_coverage_strands` · `.add_coverage_overlay` · `.add_sashimi` · `.add_sashimi_overlay` · `.add_junctions_bed` · `.add_features` · `.add_sequence` · `.add_bed_features` · `.add_hic` · `.add_tads` · `.add_scale_bar` · `.add_sites` · `.add_base_mods` · `.add_highlight_regions` |
+| **Stats** | `igvplot.summary(bam, region, reference)` → reads, depth, variant/indel/junction counts, insert-size median. |
 | **Styling** | `set_font_size(n)` / `--fontSize n` scales every label; `set_title`, `set_legend`, `figsize`, `dpi`. |
 
 MIT — see [LICENSE](LICENSE).

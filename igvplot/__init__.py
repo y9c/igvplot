@@ -36,7 +36,14 @@ from .bigwig import (
     coverage_from_bedgraph,
     read_bigwig_coverage,
 )
-from .view import AlignmentView, GenomeView, IGV, insert_size_histogram, plot_view
+from .view import (
+    AlignmentView,
+    GenomeView,
+    IGV,
+    insert_size_histogram,
+    plot_view,
+    summary,
+)
 from . import plot
 
 __version__ = "0.1.0"
@@ -51,6 +58,7 @@ __all__ = [
     "AlignmentView",
     "plot_view",
     "insert_size_histogram",
+    "summary",
     "fetch_reads",
     "compute_coverage",
     "compute_insert_sizes",

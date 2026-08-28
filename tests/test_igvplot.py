@@ -272,6 +272,50 @@ def test_coverage_overlay_and_highlight_regions(tmp_path):
     assert out.exists() and out.stat().st_size > 0
 
 
+def test_compare_tracks_render(tmp_path):
+    # multi-sample reads overlay + sashimi overlay + strand-specific coverage
+    from igvplot import GenomeView
+    gv = GenomeView(region="chrTest:6,950-7,180", reference=_data("genome.fa"), figsize=(10, 8))
+    gv.add_coverage_strands(_data("sample.bam"))
+    gv.add_sashimi_overlay(
+        [(_data("sample.bam"), "#e63946", "iso1"), (_data("sample.bam"), "#457b9d", "iso2")]
+    )
+    gv.add_reads_overlay(
+        [(_data("sample.bam"), "#4c86c6", "rep A"), (_data("sample.bam"), "#e8883a", "rep B")],
+        max_reads=40,
+    )
+    gv.add_features(_data("annotation.gb"), min_feature_length=3)
+    out = tmp_path / "compare.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_add_junctions_bed(tmp_path):
+    from igvplot import GenomeView
+    bed = tmp_path / "junc.bed"
+    bed.write_text(
+        "chrTest\t6970\t7060\tJ1\t25\n"
+        "chrTest\t7090\t7140\tJ2\t12\n"
+        "chrTest\t7000\t7100\tJ3\t3\n"
+    )
+    gv = GenomeView(region="chrTest:6,950-7,180")
+    gv.add_junctions_bed(str(bed))
+    out = tmp_path / "junc.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_summary_returns_stats():
+    from igvplot import summary
+    s = summary(_data("sample.bam"), "chrTest:6,950-7,140", reference=_data("genome.fa"))
+    for key in (
+        "region", "n_reads", "mean_depth", "max_depth", "n_junctions",
+        "n_mismatches", "insert_median",
+    ):
+        assert key in s, f"missing {key}"
+    assert s["n_reads"] > 0 and s["max_depth"] > 0
+
+
 def test_base_mod_track_and_coloring(tmp_path):
     from igvplot import GenomeView
     gv = GenomeView(region="chrTest:6,990-7,050", figsize=(10, 6))

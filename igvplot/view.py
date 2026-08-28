@@ -25,6 +25,7 @@ from .plot import (
     draw_base_mod_track,
     draw_coverage_track,
     draw_read_track,
+    draw_sashimi_overlay_track,
     draw_sashimi_track,
     draw_sequence_track,
     draw_sites,
@@ -83,6 +84,39 @@ def _parse_bed_features(bed_path: str) -> list:
                     score = None
             features.append((parts[0], s, e, name, score))
     return features
+
+
+def _parse_junction_bed(bed_path: str, chrom_filter: Optional[str] = None) -> dict:
+    """Parse a junction BED -> ``{(start, end): count}``.
+
+    Columns: ``chrom<TAB>start<TAB>end<TAB>[name]<TAB>[count]``. If the 5th
+    column is numeric it is used as the supporting-read count, else 1.
+    """
+    counts: Dict[Tuple[int, int], int] = {}
+    with open(bed_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith(("track", "browser")):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 3:
+                continue
+            if chrom_filter is not None and parts[0] != chrom_filter:
+                continue
+            try:
+                s, e = int(parts[1]), int(parts[2])
+            except ValueError:
+                continue
+            if e <= s:
+                continue
+            count = 1
+            if len(parts) > 4:
+                try:
+                    count = max(int(parts[4]), 1)
+                except ValueError:
+                    pass
+            counts[(s, e)] = counts.get((s, e), 0) + count
+    return counts
 
 
 def _style_gene_labels(ax) -> None:
@@ -216,6 +250,7 @@ class GenomeView:
         depths: Optional[np.ndarray] = None,
         reference: Optional[Union[str, Reference]] = None,
         min_mapq: int = 0,
+        strand: Optional[str] = None,
         weight: float = 1.0,
         fill_color: str = COVERAGE,
         ylabel: str = "depth",
@@ -235,7 +270,7 @@ class GenomeView:
                 mismatches = None
             elif bam_path is not None:
                 depths, mismatches = compute_coverage(
-                    bam_path, region, reference=reference, min_mapq=min_mapq
+                    bam_path, region, reference=reference, min_mapq=min_mapq, strand=strand
                 )
             else:
                 raise ValueError(
@@ -525,6 +560,142 @@ class GenomeView:
             ax.set_ylabel(label, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=weight, kind="coverage_overlay", draw=_draw))
+        return self
+
+    def add_coverage_strands(
+        self,
+        bam_path: str,
+        reference: Optional[Union[str, Reference]] = None,
+        min_mapq: int = 0,
+        weight: float = 1.4,
+        forward_color: str = "#457b9d",
+        reverse_color: str = "#e63946",
+        ylabel: str = "depth",
+        ymax: Optional[float] = None,
+    ) -> "GenomeView":
+        """Add strand-specific coverage (RNA-seq sense/antisense).
+
+        Forward-strand coverage is drawn above the baseline, reverse-strand
+        coverage is reflected below it, so you can read strand-specific
+        transcription in one track.
+        """
+
+        def _draw(ax, region):
+            x = np.arange(region.start, region.end, dtype=float)
+            fwd, _ = compute_coverage(bam_path, region, reference=reference,
+                                      min_mapq=min_mapq, strand="forward")
+            rev, _ = compute_coverage(bam_path, region, reference=reference,
+                                      min_mapq=min_mapq, strand="reverse")
+            ax.fill_between(x, fwd, step="mid", color=forward_color, alpha=0.5, lw=0, zorder=2)
+            ax.step(x, fwd, where="mid", color=forward_color, lw=1.1, zorder=3)
+            ax.fill_between(x, -rev, step="mid", color=reverse_color, alpha=0.5, lw=0, zorder=2)
+            ax.step(x, -rev, where="mid", color=reverse_color, lw=1.1, zorder=3)
+            ax.axhline(0, color="#888888", lw=0.8, zorder=1)
+            top = ymax if ymax is not None else max(float(fwd.max()), float(rev.max()), 1.0)
+            ax.set_ylim(-top, top)
+            ax.set_yticks([])
+            ax.set_ylabel(ylabel, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="coverage_strands", draw=_draw))
+        return self
+
+    def add_reads_overlay(
+        self,
+        samples,
+        reference: Optional[Union[str, Reference]] = None,
+        min_mapq: int = 0,
+        max_reads: Optional[int] = None,
+        weight: float = 3.0,
+        label: str = "reads",
+        paint_base_letters: bool = True,
+    ) -> "GenomeView":
+        """Overlay raw alignment reads from several BAMs on one shared axis.
+
+        ``samples`` is a list of ``(bam_path, color, label)``. Reads from all
+        samples are packed together and each sample is drawn in its own flat
+        colour (with a legend), so you can compare alignments across conditions
+        or replicates directly.
+        """
+        import matplotlib.patches as mpatches
+
+        ref = reference or self._reference
+
+        def _draw(ax, region):
+            combined: List[Read] = []
+            colors = {}
+            for bam, color, slabel in samples:
+                if bam is None:
+                    raise ValueError("add_reads_overlay needs a bam_path per sample")
+                for r in fetch_reads(bam, region, reference=ref, min_mapq=min_mapq,
+                                     max_reads=max_reads):
+                    r._overlay_label = slabel
+                    combined.append(r)
+                colors[slabel] = color
+
+            def color_of(i, r):
+                return colors.get(getattr(r, "_overlay_label", None), "#9e9e9e")
+
+            draw_read_track(
+                ax, combined, region=region, color_fn=color_of,
+                paint_base_letters=paint_base_letters, display_mode="expanded",
+                show_soft_clips=False,
+            )
+            if len(samples) > 1:
+                handles = [mpatches.Patch(facecolor=c, edgecolor="none", label=lab) for _, c, lab in samples]
+                ax.legend(handles=handles, fontsize=_fs(9), frameon=False,
+                          ncol=min(3, len(samples)), loc="upper right")
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="reads_overlay", draw=_draw))
+        return self
+
+    def add_sashimi_overlay(
+        self,
+        samples,
+        reference: Optional[Union[str, Reference]] = None,
+        min_counts: int = 1,
+        weight: float = 1.6,
+    ) -> "GenomeView":
+        """Compare splice-junction usage across samples (ggsashimi-style).
+
+        ``samples`` is a list of ``(bam_path, color, label)``; each sample's
+        junctions are drawn in its own colour in a stacked band on one track.
+        """
+        ref = reference or self._reference
+
+        def _draw(ax, region):
+            data = []
+            for bam, color, slabel in samples:
+                if bam is None:
+                    raise ValueError("add_sashimi_overlay needs a bam_path per sample")
+                reads = fetch_reads(bam, region, reference=ref)
+                counts = junction_counts(reads, region, min_counts=min_counts)
+                data.append((color, slabel, counts))
+            draw_sashimi_overlay_track(ax, data, region=region)
+
+        self.tracks.append(Track(weight=weight, kind="sashimi_overlay", draw=_draw))
+        return self
+
+    def add_junctions_bed(
+        self,
+        bed_path: str,
+        arc_color: str = SASHIMI,
+        weight: float = 1.2,
+        label: str = "junction",
+    ) -> "GenomeView":
+        """Draw precomputed splice junctions from a BED file (no BAM needed).
+
+        The BED is ``chrom<TAB>start<TAB>end<TAB>[name]<TAB>[count]``; arc
+        thickness/height scale with the count (default 1).
+        """
+        region = self.region
+        counts = _parse_junction_bed(bed_path, region.chrom)
+
+        def _draw(ax, region):
+            draw_sashimi_track(ax, counts, region=region, arc_color=arc_color)
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="junction_bed", draw=_draw))
         return self
 
     def add_reads(
@@ -1042,3 +1213,43 @@ def plot_view(
     if out_path:
         view.savefig(out_path, dpi=dpi)
     return view
+
+
+def summary(
+    bam_path: str,
+    region,
+    reference: Optional[Union[str, Reference]] = None,
+    min_mapq: int = 0,
+) -> dict:
+    """Return QC-style statistics for a BAM region.
+
+    Returns a dict with read counts, per-base depth stats, variant/indel and
+    junction counts and the insert-size distribution.
+    """
+    from .reads import (
+        compute_coverage,
+        compute_insert_sizes,
+        fetch_reads,
+        junction_counts,
+    )
+
+    region = Region.from_any(region)
+    reads = fetch_reads(bam_path, region, reference=reference, min_mapq=min_mapq)
+    depths, mism = compute_coverage(bam_path, region, reference=reference, min_mapq=min_mapq)
+    sizes = compute_insert_sizes(bam_path, region, min_mapq=min_mapq)
+    juncs = junction_counts(reads, region)
+    n = depths.size
+    return {
+        "region": region,
+        "n_reads": len(reads),
+        "n_reverse": sum(1 for r in reads if r.is_reverse),
+        "n_mismatches": sum(len(r.mismatches) for r in reads),
+        "n_insertions": sum(len(r.insertions) for r in reads),
+        "n_deletions": sum(len(r.deletions) for r in reads),
+        "n_junctions": sum(juncs.values()),
+        "mean_depth": float(depths.mean()) if n else 0.0,
+        "max_depth": int(depths.max()) if n else 0,
+        "n_variant_positions": int(np.count_nonzero(mism)) if mism is not None else 0,
+        "insert_median": float(np.median(sizes)) if sizes.size else 0.0,
+        "insert_mean": float(sizes.mean()) if sizes.size else 0.0,
+    }

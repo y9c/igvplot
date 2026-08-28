@@ -185,6 +185,22 @@ def hic():
     save(gv, "gallery_hic.png", dpi=120)
 
 
+def compare():
+    """Multi-sample comparison: strand coverage + sashimi overlay + reads overlay."""
+    view = (
+        GenomeView(region=HERO_REGION, reference=REF, figsize=(15, 9))
+        .add_coverage_strands(BAM, weight=1.6)
+        .add_sashimi_overlay([(BAM, "#e63946", "isoform1"), (BAM, "#457b9d", "isoform2")], weight=1.6)
+        .add_reads_overlay(
+            [(BAM, "#4c86c6", "replicate A"), (BAM, "#e8883a", "replicate B")],
+            max_reads=50,
+            weight=3.0,
+        )
+        .add_features(GB, min_feature_length=3)
+    )
+    save(view, "gallery_compare.png", dpi=120)
+
+
 def variants():
     """A single variant-centred plot with the variant allele fraction in the title."""
     vaf, depth, alt = igvplot.variant_allele_fraction(BAM, "chrTest", 7000, reference=REF)
@@ -214,6 +230,7 @@ def main():
     basemod()
     overlay()
     hic()
+    compare()
     variants()
     print("done.")
 

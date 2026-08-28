@@ -497,6 +497,7 @@ def draw_read_track(
     show_deletion_text: bool = False,
     basemod_sites: Optional[Dict[int, tuple]] = None,
     sort_base_pos: Optional[int] = None,
+    color_fn: Optional = None,
 ) -> int:
     """Draw a stacked pile of aligned reads (IGV-style).
 
@@ -512,7 +513,8 @@ def draw_read_track(
     """
     strand_colors = strand_colors or STRAND_COLORS
     base_colors = base_colors or BASE_COLORS
-    color_fn = _read_colormap(color_by, colormap, reads, basemod_sites)
+    if color_fn is None:
+        color_fn = _read_colormap(color_by, colormap, reads, basemod_sites)
 
     squished = display_mode == "squished"
     full = display_mode == "full"
@@ -944,6 +946,86 @@ def draw_sashimi_track(
     ax.set_yticks([])
     ax.set_ylabel("junction", fontsize=_fs(11))
     return max_height
+
+
+def draw_sashimi_overlay_track(
+    ax,
+    sample_data,
+    region: Region,
+    max_height: float = 1.0,
+    thickness: Tuple[float, float] = (1.0, 4.0),
+    label_fontsize: float = 9.5,
+) -> float:
+    """Draw comparison sashimi arcs from several samples on one track.
+
+    ``sample_data`` is a list of ``(color, label, counts)`` where ``counts`` is
+    a ``{(splice_start, splice_end): n_reads}`` mapping. Each sample is drawn in
+    its own colour in a vertically-stacked band, so junction usage can be
+    compared across conditions/replicates (ggsashimi-style).
+
+    Returns the height used.
+    """
+    if not sample_data:
+        ax.axis("off")
+        return 0.0
+    n = len(sample_data)
+    band = 1.0 / max(n, 1)
+    max_count = max(
+        (c for _c, _l, counts in sample_data for c in counts.values()), default=1
+    )
+    lw_min, lw_max = thickness
+    for si, (color, label, counts) in enumerate(sample_data):
+        base = (n - 1 - si) * band  # first sample on top
+        hb = band * 0.92
+        for (s, e), cnt in sorted(counts.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+            s = max(s, region.start)
+            e = min(e, region.end)
+            if e - s < 1:
+                continue
+            lw = lw_min + (lw_max - lw_min) * (cnt / max_count)
+            verts = [(s, base), (s, base + hb), (e, base + hb), (e, base)]
+            codes = [
+                mpl.path.Path.MOVETO,
+                mpl.path.Path.CURVE4,
+                mpl.path.Path.CURVE4,
+                mpl.path.Path.CURVE4,
+            ]
+            ax.add_patch(
+                mpl.patches.PathPatch(
+                    mpl.path.Path(verts, codes),
+                    facecolor="none",
+                    lw=lw,
+                    edgecolor=color,
+                    alpha=0.9,
+                    zorder=2 + si,
+                )
+            )
+            ax.text(
+                (s + e) / 2.0,
+                base + hb * 0.55,
+                str(cnt),
+                ha="center",
+                va="center",
+                fontsize=_fs(label_fontsize - 2),
+                color=color,
+                weight="bold",
+                zorder=3 + si,
+            )
+        # sample label on the left of its band
+        ax.text(
+            region.start,
+            base + hb * 0.5,
+            label,
+            ha="left",
+            va="center",
+            fontsize=_fs(label_fontsize - 2),
+            color=color,
+            zorder=6,
+        )
+    ax.set_ylim(-0.05, n * band + 0.05)
+    ax.set_yticks([])
+    ax.set_ylabel("junction", fontsize=_fs(11))
+    return float(n * band)
 
 
 def draw_base_mod_track(
