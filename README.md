@@ -1,0 +1,165 @@
+# igvplot
+
+IGV-style **BAM read pileup**, **coverage**, **gene features**, **sashimi
+junctions** and **epigenetic base modifications** in matplotlib — built on
+[pysam](https://github.com/pysam-developers/pysam) and
+[dna_features_viewer](https://github.com/Edinburgh-Genome-Foundry/DnaFeaturesViewer).
+
+Reads, coverage and genes are stacked on **shared x-axes** so genomic positions
+line up exactly, with **per-base mismatch / insertion / deletion** detail, IGV
+colouring, and base-resolution zoom.
+
+---
+
+## The default view
+
+Sashimi arcs → gene arrows → coverage (+ variant pile) → aligned reads → reference sequence.
+
+![default view](examples/gallery_hero.png)
+
+## Base-level zoom
+
+Every read base as a letter, aligned to a colour-coded reference row — read
+SNPs, insertions (`+`) and deletions (`−`) position by position.
+
+![base-level zoom](examples/gallery_base_level.png)
+
+## Colouring & grouping (IGV parity)
+
+Colour and cluster reads by attribute via `color_by` / `group_by`.
+
+| pair orientation + strand | read group | mapping quality |
+| --- | --- | --- |
+| ![pair orientation](examples/gallery_color_pair.png) | ![read group](examples/gallery_color_readgroup.png) | ![mapq](examples/gallery_color_mapq.png) |
+
+## Epigenetic base modifications
+
+Strand-aware m6A / m5C / … markers, with reads **coloured by the modification
+they span** (`color_by="basemod"`).
+
+![base modifications](examples/gallery_basemod.png)
+
+## Multi-sample comparison
+
+Overlay coverage from several BAMs on one axis, and shade regions of interest
+across every track.
+
+![multi-sample overlay](examples/gallery_overlay.png)
+
+## Hi-C multi-track (pyGenomeTracks-style)
+
+Scale bar + contact heatmap + TAD boundaries + genes + coverage + reads —
+`GenomeView` track API.
+
+![Hi-C multi-track](examples/gallery_hic.png)
+
+## Variant-centric + allele fraction
+
+One centred plot per variant, with the **variant allele fraction** in the title
+and reads sorted by the variant base.
+
+![variant VAF](examples/gallery_variants.png)
+
+## Insert-size distribution
+
+Paired-end TLEN histogram (`--insert-length`).
+
+![insert-size](examples/gallery_insert.png)
+
+---
+
+## Install
+
+```bash
+pip install -e .
+# optional: GFF/GTF feature support
+pip install -e ".[gff]"
+```
+
+## Python API
+
+One-liner:
+
+```python
+import igvplot
+
+view = igvplot.plot_view(
+    bam_path="sample.bam",
+    region="chr1:1,000-2,000",        # 1-based inclusive
+    features="annotation.gb",
+    reference="genome.fa",
+    sites={1050: "m6A"},
+    sashimi=True,
+    link_mates=True,
+    out_path="locus.png",             # fig = view.render() to keep it in memory
+)
+```
+
+Or stack tracks fluently with `GenomeView` (a.k.a. `IGV`):
+
+```python
+from igvplot import IGV
+
+igv = (
+    IGV("chr1:1,000-2,000", reference="genome.fa", dpi=150)
+    .add_sashimi("rna.bam")
+    .add_coverage("rna.bam")
+    .add_reads("rna.bam", color_by="pairOrientation", group_by="strand",
+               link_mates=True, show_soft_clips=True)
+    .add_features("annotation.gb")
+    .add_sequence("genome.fa")
+    .add_sites({1050: "m6A"})
+    .add_base_mods({1050: (1, "m6A")})
+    .add_highlight_regions([(1050, 1080)])
+)
+igv.savefig("locus.png")
+```
+
+## Command line
+
+```bash
+igvplot sample.bam chr1:1,000-2,000 -o locus.png \
+    --features annotation.gb -r genome.fa \
+    --sites sites.bed --sashimi --link-mates \
+    --color-by pairOrientation --group-by strand --show-sequence
+```
+
+Variant batch (one figure per VCF/BED site, with VAF):
+
+```bash
+igvplot sample.bam --vcf variants.vcf -r genome.fa --window 100 \
+    --prefix variant --sort-by-variant --vaf
+```
+
+## Regenerate the gallery
+
+```bash
+python examples/generate_gallery.py
+```
+
+## Reference
+
+| | |
+| --- | --- |
+| **Region** | `chr1:1,000-2,000` (1-based inclusive), `(chrom, start, end)` tuple, or `Region`. Internal coords are **0-based, half-open**. |
+| **Read modes** | `color_by`: `strand` · `pairOrientation` · `readgroup` · `mapq` · `insert` · `proper` · `mate` · `basemod` · `none`. `group_by` cluster reads vertically; `sort_by`: `start` · `strand` · `mapq` · `insert` · `name`. |
+| **Display** | `display_mode`: `expanded` · `squished` · `full`. `show_all_bases` for base resolution, `show_soft_clips`, `link_mates`, `highlight={...}`. |
+| **Tracks** | `.add_reads` · `.add_coverage` · `.add_coverage_overlay` · `.add_sashimi` · `.add_features` · `.add_sequence` · `.add_bed_features` · `.add_hic` · `.add_tads` · `.add_scale_bar` · `.add_sites` · `.add_base_mods` · `.add_highlight_regions` |
+| **Styling** | `set_font_size(n)` / `--fontSize n` scales every label; `set_title`, `set_legend`, `figsize`, `dpi`. |
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+## Development & publishing
+
+```bash
+pip install -e ".[dev]"        # build, pytest, pytest-cov
+python -m pytest -q            # run the test suite
+python examples/generate_gallery.py   # regenerate the images above
+```
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — setup, style, module map.
+- [CHANGELOG.md](CHANGELOG.md) — release history.
+- CI runs tests on Python 3.9 & 3.11 and builds a wheel on every push
+  (`.github/workflows/ci.yml`).

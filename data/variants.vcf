@@ -1,0 +1,4 @@
+##fileformat=VCFv4.2
+#CHROM	POS	ID	REF	ALT	QUAL
+chrTest	7001	.	C	T	60
+chrTest	7011	.	A	G	50

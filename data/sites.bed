@@ -1,0 +1,4 @@
+chrTest	7000	7001	snp_7000_CT(C>T)
+chrTest	7010	7011	snp_7010_AG(A>G)
+chrTest	7020	7021	del_7020_3bp(3bp deletion)
+chrTest	7030	7031	ins_7030_CC(CC insertion)

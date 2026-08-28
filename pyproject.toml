@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "igvplot"
+version = "0.1.0"
+description = "IGV-style BAM read pileup, coverage, gene-feature and base-modification plots in matplotlib, built on pysam and dna_features_viewer."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Yecheng" }]
+keywords = [
+    "bioinformatics", "IGV", "BAM", "visualization", "matplotlib",
+    "alignment", "genomics", "reads", "pileup", "coverage", "epigenetics",
+    "m6A", "m5C", "RNA-seq", "sashimi", "Hi-C",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pysam>=0.20",
+    "matplotlib>=3.5",
+    "numpy>=1.20",
+    "dna-features-viewer>=3.1",
+    "biopython>=1.79",
+]
+
+[project.optional-dependencies]
+gff = ["bcbio-gff>=0.6.6"]
+bigwig = ["pyBigWig>=0.3.22"]
+dev = [
+    "pytest>=7",
+    "pytest-cov>=4",
+    "build>=1",
+]
+
+[project.scripts]
+igvplot = "igvplot.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yecheng/igvplot"
+Repository = "https://github.com/yecheng/igvplot"
+Issues = "https://github.com/yecheng/igvplot/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["igvplot*"]
+
+[tool.setuptools.package-data]
+igvplot = ["py.typed", "**/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["igvplot"]
+omit = ["*/tests/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

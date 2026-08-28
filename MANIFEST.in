@@ -1,0 +1,12 @@
+# Source distribution (sdist) manifest — ensures tests, synthetic data and the
+# image gallery ship with the source tarball. Wheel content is controlled by
+# [tool.setuptools.package-data] in pyproject.toml.
+include README.md
+include LICENSE
+include py.typed
+recursive-include igvplot *.py py.typed
+recursive-include tests *.py
+recursive-include data *
+recursive-include examples *.png *.py *.ini
+recursive-include scripts *.py
+global-exclude __pycache__ *.py[cod] *.egg-info

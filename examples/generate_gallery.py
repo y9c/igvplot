@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Generate the example images used in README.md.
+
+Each call below renders one figure from the synthetic data in ``data/`` and
+writes it to ``examples/``. Run from the repo root::
+
+    python examples/generate_gallery.py
+
+The output images are referenced by ``README.md`` as a visual gallery.
+"""
+from __future__ import annotations
+
+import os
+import sys
+
+import matplotlib
+
+matplotlib.use("Agg")  # headless
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+sys.path.insert(0, REPO)
+
+import numpy as np  # noqa: E402
+
+import igvplot  # noqa: E402
+from igvplot import GenomeView, Region  # noqa: E402
+
+DATA = os.path.join(REPO, "data")
+BAM = os.path.join(DATA, "sample.bam")
+REF = os.path.join(DATA, "genome.fa")
+GB = os.path.join(DATA, "annotation.gb")
+SITES = os.path.join(DATA, "sites.bed")
+BASEMOD = os.path.join(DATA, "basemods.bed")
+VCF = os.path.join(DATA, "variants.vcf")
+
+HERO_REGION = "chrTest:6,930-7,200"
+
+
+def save(view, name, dpi=120):
+    out = os.path.join(HERE, name)
+    view.savefig(out, dpi=dpi)
+    print(f"saved examples/{name}")
+
+
+def hero():
+    """The default view: sashimi + feature + coverage + reads + sequence + sites."""
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region=HERO_REGION,
+        features=GB,
+        reference=REF,
+        sites={7000: "SNP C>T", 7010: "SNP", 7020: "DEL 3bp", 7030: "INS CC"},
+        sashimi=True,
+        link_mates=True,
+        color_by="strand",
+        show_sequence=True,
+        figsize=(15, 9),
+    )
+    save(view, "gallery_hero.png", dpi=120)
+
+
+def base_level():
+    """Zoomed base-resolution: every read base + colour-coded reference row."""
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region="chrTest:6,995-7,040",
+        reference=REF,
+        sites={7000: "SNP C>T", 7010: "SNP", 7020: "DEL 3bp", 7030: "INS CC"},
+        show_all_bases=True,
+        show_sequence=True,
+        color_by="strand",
+        figsize=(15, 7),
+    )
+    save(view, "gallery_base_level.png", dpi=130)
+
+
+def color_pair():
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region=HERO_REGION,
+        reference=REF,
+        features=GB,
+        color_by="pairOrientation",
+        group_by="strand",
+        link_mates=True,
+        show_soft_clips=True,
+        figsize=(13, 6),
+    )
+    save(view, "gallery_color_pair.png", dpi=120)
+
+
+def color_readgroup():
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region=HERO_REGION,
+        reference=REF,
+        features=GB,
+        color_by="readgroup",
+        group_by="readgroup",
+        figsize=(13, 6),
+    )
+    save(view, "gallery_color_readgroup.png", dpi=120)
+
+
+def color_mapq():
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region=HERO_REGION,
+        reference=REF,
+        color_by="mapq",
+        colormap="plasma",
+        group_by="strand",
+        figsize=(13, 6),
+    )
+    save(view, "gallery_color_mapq.png", dpi=120)
+
+
+def basemod():
+    """Strand-aware base-modification track + reads coloured by the mod they span."""
+    view = (
+        GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 7))
+        .add_base_mods({7000: (1, "m6A"), 7010: (-1, "m5C"), 7021: (1, "m6A")})
+        .add_reads(BAM, reference=REF, color_by="basemod")
+        .add_features(GB)
+        .add_sites({7000: "SNP", 7010: "SNP", 7020: "DEL", 7030: "INS"})
+    )
+    save(view, "gallery_basemod.png", dpi=120)
+
+
+def overlay():
+    """Multi-sample coverage overlay + shaded highlight regions."""
+    view = GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 6))
+    view.add_coverage_overlay(
+        [(BAM, "#1f77b4", "replicate A"), (BAM, "#d62728", "replicate B")]
+    )
+    view.add_highlight_regions([(6960, 6990, "#ffe082", 0.35), (7040, 7070, "#a5d6a7", 0.35)])
+    view.add_reads(BAM, reference=REF, color_by="strand", max_reads=80)
+    view.add_features(GB)
+    save(view, "gallery_overlay.png", dpi=120)
+
+
+def hic():
+    """pyGenomeTracks-style multi-track: scale + Hi-C + TAD + genes + reads."""
+    region = Region.from_any(HERO_REGION)
+
+    def make_hic(region, n_bins=48, tads=((6950, 7060), (7060, 7160), (7160, 7230))):
+        edges = np.linspace(region.start, region.end, n_bins + 1)
+        centers = (edges[:-1] + edges[1:]) / 2
+
+        def tad_of(x):
+            for i, (a, b) in enumerate(tads):
+                if a <= x < b:
+                    return i
+            return 0
+
+        mat = np.zeros((n_bins, n_bins))
+        rng = np.random.default_rng(3)
+        for i in range(n_bins):
+            for j in range(n_bins):
+                dist = abs(i - j)
+                decay = np.exp(-dist / 6.0)
+                same = 1.0 if tad_of(centers[i]) == tad_of(centers[j]) else 0.12
+                mat[i, j] = decay * (8.0 * same) + rng.uniform(0, 0.4)
+        return mat
+
+    gv = GenomeView(region=HERO_REGION, figsize=(15, 9), dpi=120)
+    gv.add_scale_bar(window_bp=100)
+    gv.add_hic(make_hic(region), cmap="Reds")
+    gv.add_tads([7060, 7160])
+    gv.add_features(GB)
+    gv.add_coverage(BAM, reference=REF)
+    gv.add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation")
+    save(gv, "gallery_hic.png", dpi=120)
+
+
+def insert():
+    igvplot.insert_size_histogram(
+        BAM,
+        HERO_REGION,
+        out_path=os.path.join(HERE, "gallery_insert.png"),
+        dpi=120,
+        figsize=(7, 5),
+    )
+    print("saved examples/gallery_insert.png")
+
+
+def variants():
+    """A single variant-centred plot with the variant allele fraction in the title."""
+    vaf, depth, alt = igvplot.variant_allele_fraction(BAM, "chrTest", 7000, reference=REF)
+    view = igvplot.plot_view(
+        bam_path=BAM,
+        region="chrTest:6,930-7,070",
+        reference=REF,
+        features=GB,
+        sites={7000: "C>T"},
+        color_by="basemod",
+        basemod={7000: (1, "m6A"), 7010: (-1, "m5C")},
+        figsize=(13, 6),
+    )
+    view.set_title(f"chrTest:7001 C>T    VAF={vaf:.2f} ({alt}/{depth})")
+    save(view, "gallery_variants.png", dpi=120)
+
+
+def main():
+    hero()
+    base_level()
+    color_pair()
+    color_readgroup()
+    color_mapq()
+    basemod()
+    overlay()
+    hic()
+    insert()
+    variants()
+    print("done.")
+
+
+if __name__ == "__main__":
+    main()
