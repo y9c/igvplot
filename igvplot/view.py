@@ -174,7 +174,11 @@ class GenomeView:
 
         feats = list(record.features or [])
         if feature_types is not None:
-            feats = [f for f in feats if getattr(f, "feature_type", None) in feature_types]
+            accepted = {str(t).lower() for t in feature_types}
+            feats = [
+                f for f in feats
+                if str(getattr(f, "feature_type", "")).lower() in accepted
+            ]
         if min_feature_length:
             feats = [
                 f for f in feats
@@ -316,6 +320,10 @@ class GenomeView:
         heatmap aligned to the region's genomic coordinates.
         """
         mat = np.asarray(matrix, dtype=float)
+        if mat.ndim != 2:
+            raise ValueError(
+                f"add_hic expects a 2-D contact matrix, got shape {mat.shape}"
+            )
 
         def _draw(ax, region):
             ax.imshow(

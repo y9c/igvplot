@@ -286,7 +286,24 @@ def test_base_mod_track_and_coloring(tmp_path):
     assert mods[7010] == (-1, "m5C", "#00ff00")
 
 
-def test_hic_scale_tad_bed_tracks(tmp_path):
+def test_add_hic_requires_2d():
+    import numpy as np
+    import pytest
+    from igvplot import GenomeView
+    gv = GenomeView(region="chrTest:6,950-7,150")
+    with pytest.raises(ValueError):
+        gv.add_hic(np.zeros(10))  # 1-D is not a contact matrix
+
+
+def test_feature_types_case_insensitive(tmp_path):
+    # feature_types matching must be case-insensitive and never crash on
+    # non-string feature types
+    from igvplot import GenomeView
+    out = tmp_path / "ft.png"
+    gv = GenomeView(region="chrTest:6,940-7,190")
+    gv.add_features(_data("annotation.gb"), feature_types={"cds", "gene"})
+    gv.savefig(str(out), dpi=60)
+    assert out.exists() and out.stat().st_size > 0
     import numpy as np
     from igvplot import GenomeView
     region = "chrTest:6,930-7,230"
@@ -336,6 +353,20 @@ def test_coverage_from_bedgraph():
         ]
     )
     depths = coverage_from_bedgraph(text, region, region.length)
+    assert (depths[:5] == 7.5).all()
+    assert depths[5] == 0.0 and depths[6] == 0.0
+    assert (depths[7:] == 3.0).all()
+
+
+def test_coverage_from_bedgraph_interval_tuples():
+    # an iterable of (chrom, start, end, value) tuples must also be accepted
+    region = Region("chrX", 100, 110)
+    intervals = [
+        ("chrX", 100, 105, 7.5),
+        ("chrX", 107, 110, 3.0),
+        ("chr9", 100, 110, 99),  # wrong chrom -> ignored
+    ]
+    depths = coverage_from_bedgraph(intervals, region, region.length)
     assert (depths[:5] == 7.5).all()
     assert depths[5] == 0.0 and depths[6] == 0.0
     assert (depths[7:] == 3.0).all()

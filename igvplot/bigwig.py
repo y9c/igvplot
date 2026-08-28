@@ -46,15 +46,21 @@ def coverage_from_bedgraph(
     depths = np.full(n, default, dtype=np.float64)
     lines = bedgraph_text.splitlines() if isinstance(bedgraph_text, str) else bedgraph_text
     for line in lines:
-        if not line or line.startswith(("#", "track", "browser")):
-            continue
-        parts = line.split()
-        if len(parts) < 4:
-            continue
-        try:
-            chrom, s, e, val = parts[0], int(parts[1]), int(parts[2]), float(parts[3])
-        except (ValueError, IndexError):
-            continue
+        if isinstance(line, (list, tuple)):
+            # iterable of intervals: (chrom, start, end, value)
+            if len(line) < 4:
+                continue
+            chrom, s, e, val = line[0], int(line[1]), int(line[2]), float(line[3])
+        else:
+            if not line or line.startswith(("#", "track", "browser")):
+                continue
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            try:
+                chrom, s, e, val = parts[0], int(parts[1]), int(parts[2]), float(parts[3])
+            except (ValueError, IndexError):
+                continue
         if chrom != region.chrom:
             continue
         s = max(s, region.start)
