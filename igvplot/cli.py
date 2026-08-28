@@ -240,7 +240,12 @@ def main(argv=None) -> int:
         insert_size_histogram(
             args.bam, region, out_path=args.out, min_mapq=args.min_mapq, dpi=args.dpi
         )
-        print(f"wrote {args.out or 'plot (shown)'}")
+        if args.out:
+            print(f"wrote {args.out}")
+        else:
+            import matplotlib.pyplot as plt
+
+            plt.show()  # actually display when no -o was given
         return 0
 
     # --- variant / region batch mode -------------------------------------

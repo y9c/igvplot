@@ -132,4 +132,8 @@ def read_bigwig_coverage(path: str, region) -> np.ndarray:
         return _read_bigwig_with_pybigwig(path, region)
     except ImportError:
         pass
+    except KeyError as exc:
+        raise BigWigUnavailableError(
+            f"contig {region.chrom!r} not found in BigWig {path!r}"
+        ) from exc
     return _read_bigwig_with_ucsc_tools(path, region)

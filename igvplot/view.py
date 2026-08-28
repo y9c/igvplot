@@ -715,7 +715,9 @@ class GenomeView:
         region = self.region
         n = len(self.tracks)
         fig = fig or plt.figure(figsize=self.figsize, dpi=self.dpi)
-        heights = [t.weight for t in self.tracks]
+        # clamp track weights to a small positive so a 0/negative weight can't
+        # produce a zero-height (or degenerate) subplot
+        heights = [max(float(t.weight), 1e-3) for t in self.tracks]
         gs = GridSpec(
             n,
             1,
