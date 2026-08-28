@@ -460,3 +460,15 @@ def test_add_sequence_renders_and_owns_reference(tmp_path):
     gv.add_reads(_data("sample.bam"), reference=_data("genome.fa"), max_reads=40)
     gv.savefig(str(out), dpi=70)
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_pathlib_paths_supported(tmp_path):
+    # pathlib.Path should be accepted everywhere a file path is taken
+    from pathlib import Path
+    from igvplot import IGV
+    out = tmp_path / "pl.png"
+    gv = IGV("chrTest:6,990-7,060")
+    gv.add_features(Path(_data("annotation.gb")), min_feature_length=3)
+    gv.add_reads(Path(_data("sample.bam")), reference=Path(_data("genome.fa")), max_reads=40)
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0

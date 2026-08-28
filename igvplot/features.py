@@ -7,6 +7,8 @@ matplotlib axis shared with the read/coverage axes so everything lines up.
 """
 from __future__ import annotations
 
+import os
+from os import fspath
 from typing import List, Optional, Union
 
 from dna_features_viewer import BiopythonTranslator, GraphicFeature, GraphicRecord
@@ -40,10 +42,12 @@ def load_features(
     region:
         If given, the record is cropped to this (0-based) interval first.
     """
+    if isinstance(source, os.PathLike):
+        source = fspath(source)
     if isinstance(source, GraphicRecord):
         record = source
     elif isinstance(source, (str, bytes)):
-        record = _load_from_path(source)
+        record = _load_from_path(fspath(source))
     elif isinstance(source, list):
         # assume global coordinates; sequence_length irrelevant for a region
         record = GraphicRecord(

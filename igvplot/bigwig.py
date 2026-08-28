@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from os import fspath
 
 import numpy as np
 
@@ -67,7 +68,7 @@ def _read_bigwig_with_pybigwig(path: str, region: Region) -> np.ndarray:
     import pyBigWig  # noqa: F401  (imported lazily)
 
     n = region.length
-    bw = pyBigWig.open(path)
+    bw = pyBigWig.open(fspath(path))
     try:
         chrom = region.chrom
         if chrom not in bw.chroms():
@@ -120,6 +121,7 @@ def read_bigwig_coverage(path: str, region) -> np.ndarray:
     half-open region. Falls back from pyBigWig to the UCSC tools.
     """
     region = Region.from_any(region)
+    path = fspath(path)
     try:
         return _read_bigwig_with_pybigwig(path, region)
     except ImportError:

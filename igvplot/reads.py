@@ -14,6 +14,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pysam
 
+from os import fspath
+
 from .region import Region
 from .theme import BASE_COLORS
 
@@ -100,7 +102,7 @@ class Reference:
     def __init__(self, fasta_path: Optional[str] = None, fasta_obj: Optional[pysam.FastaFile] = None):
         self._fasta = fasta_obj
         if fasta_path is not None:
-            self._fasta = pysam.FastaFile(fasta_path)
+            self._fasta = pysam.FastaFile(fspath(fasta_path))
         self._cache: Dict[Tuple[str, int, int], str] = {}
 
     def close(self) -> None:
@@ -186,7 +188,7 @@ def compute_insert_sizes(
     """
     region = Region.from_any(region)
     sizes: List[int] = []
-    with pysam.AlignmentFile(bam_path, "rb") as bam:
+    with pysam.AlignmentFile(fspath(bam_path), "rb") as bam:
         for seg in bam.fetch(region.chrom, region.start, region.end):
             if not seg.is_paired or seg.is_unmapped or seg.is_supplementary or seg.is_secondary:
                 continue
@@ -390,7 +392,7 @@ def fetch_reads(
     reads: List[Read] = []
     seen_bins = {}
     try:
-        with pysam.AlignmentFile(bam_path, "rb") as bam:
+        with pysam.AlignmentFile(fspath(bam_path), "rb") as bam:
             for seg in bam.fetch(region.chrom, region.start, region.end):
                 if seg.is_unmapped or seg.is_supplementary:
                     continue
@@ -458,7 +460,7 @@ def compute_coverage(
     ref = reference if isinstance(reference, Reference) else Reference(reference)
     close_ref = not isinstance(reference, Reference)
     try:
-        with pysam.AlignmentFile(bam_path, "rb") as bam:
+        with pysam.AlignmentFile(fspath(bam_path), "rb") as bam:
             for col in bam.pileup(
                 region.chrom,
                 region.start,
