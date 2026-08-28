@@ -9,61 +9,16 @@ Reads, coverage and genes are stacked on **shared x-axes** so genomic positions
 line up exactly, with **per-base mismatch / insertion / deletion** detail, IGV
 colouring, and base-resolution zoom.
 
----
+**Contents**
 
-## The default view
-
-Sashimi arcs → gene arrows → coverage (+ variant pile) → aligned reads → reference sequence.
-
-![default view](examples/gallery_hero.png)
-
-## Base-level zoom
-
-Every read base as a letter, aligned to a colour-coded reference row — read
-SNPs, insertions (`+`) and deletions (`−`) position by position.
-
-![base-level zoom](examples/gallery_base_level.png)
-
-## Colouring & grouping (IGV parity)
-
-Colour and cluster reads by attribute via `color_by` / `group_by`.
-`link_mates` draws a connector between the two mates; `view_as_pairs` places
-each paired fragment on a single joined row (IGV "view as pairs").
-
-| pair orientation + strand | read group | mapping quality |
-| --- | --- | --- |
-| ![pair orientation](examples/gallery_color_pair.png) | ![read group](examples/gallery_color_readgroup.png) | ![mapq](examples/gallery_color_mapq.png) |
-
-## Epigenetic base modifications
-
-Strand-aware m6A / m5C / … markers in a dedicated track (`add_base_mods`). Reads
-can be coloured by the modification they span (`color_by="basemod"`).
-
-![base modifications](examples/gallery_basemod.png)
-
-## Multi-sample comparison
-
-Compare several samples on shared axes — coverage overlay, **comparison sashimi**
-(`add_sashimi_overlay`), **strand-specific coverage** (`add_coverage_strands`),
-and **read overlay** (`add_reads_overlay`) — then shade regions of interest.
-
-![multi-sample overlay](examples/gallery_overlay.png)
-
-![multi-sample comparison](examples/gallery_compare.png)
-
-## Hi-C multi-track (pyGenomeTracks-style)
-
-Scale bar + contact heatmap + TAD boundaries + genes + coverage + reads —
-`GenomeView` track API.
-
-![Hi-C multi-track](examples/gallery_hic.png)
-
-## Variant-centric + allele fraction
-
-One centred plot per variant, with the **variant allele fraction** in the title
-and the base change called out at the site (plus any base modifications).
-
-![variant VAF](examples/gallery_variants.png)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Gallery](#gallery)
+- [Python API](#python-api)
+- [Command line](#command-line)
+- [Reference](#reference)
+- [Regenerate the gallery](#regenerate-the-gallery)
+- [Docs and development](#docs-and-development)
 
 ---
 
@@ -75,9 +30,9 @@ pip install -e .
 pip install -e ".[gff]"
 ```
 
-## Python API
+Requires `pysam`, `matplotlib`, `numpy`, `dna-features-viewer`, `biopython`.
 
-One-liner:
+## Quick start
 
 ```python
 import igvplot
@@ -89,12 +44,11 @@ view = igvplot.plot_view(
     reference="genome.fa",
     sites={1050: "m6A"},
     sashimi=True,
-    link_mates=True,
     out_path="locus.png",             # fig = view.render() to keep it in memory
 )
 ```
 
-Or stack tracks fluently with `GenomeView` (a.k.a. `IGV`):
+Or stack tracks fluently with the `IGV` builder (`IGV == GenomeView == AlignmentView`):
 
 ```python
 from igvplot import IGV
@@ -104,7 +58,7 @@ igv = (
     .add_sashimi("rna.bam")
     .add_coverage("rna.bam")
     .add_reads("rna.bam", color_by="pairOrientation", group_by="strand",
-               link_mates=True, show_soft_clips=True)
+               link_mates=True, view_as_pairs=True, show_soft_clips=True)
     .add_features("annotation.gb")
     .add_sequence("genome.fa")
     .add_sites({1050: "m6A"})
@@ -114,13 +68,93 @@ igv = (
 igv.savefig("locus.png")
 ```
 
+## Gallery
+
+Every figure below is produced by `examples/generate_gallery.py` from the
+synthetic data in `data/`.
+
+### Default view
+
+Sashimi arcs → gene arrows → coverage (+ variant pile) → aligned reads → reference sequence.
+
+![default view](examples/gallery_hero.png)
+
+### Alignment & colouring
+
+**Base-level zoom** — every read base as a letter, aligned to a colour-coded
+reference row, so SNPs, insertions (`+`) and deletions (`−`) are read position
+by position.
+
+![base-level zoom](examples/gallery_base_level.png)
+
+Colour and cluster reads by attribute via `color_by` / `group_by`; `link_mates`
+draws a mate connector and `view_as_pairs` joins a fragment on one row (IGV
+"view as pairs").
+
+| pair orientation + strand | read group | mapping quality |
+| --- | --- | --- |
+| ![pair orientation](examples/gallery_color_pair.png) | ![read group](examples/gallery_color_readgroup.png) | ![mapq](examples/gallery_color_mapq.png) |
+
+### Epigenetics
+
+Strand-aware m6A / m5C / … markers (`add_base_mods`), reads coloured by the
+modification they span (`color_by="basemod"`), per-base **variant fraction**,
+**modification stoichiometry** and IUPAC **motif** (`DRACH`) tracks.
+
+![base modifications](examples/gallery_basemod.png)
+
+![per-base VAF / mod stoichiometry / motifs](examples/gallery_epigenetics.png)
+
+### Multi-sample comparison
+
+Overlay coverage, **comparison sashimi** (`add_sashimi_overlay`),
+**strand-specific coverage** (`add_coverage_strands`) and **reads**
+(`add_reads_overlay`) from several samples on shared axes, then shade regions of
+interest.
+
+![multi-sample overlay](examples/gallery_overlay.png)
+
+![multi-sample comparison](examples/gallery_compare.png)
+
+### Hi-C & domains
+
+Scale bar + contact heatmap + TAD boundaries + genes + coverage + reads.
+
+![Hi-C multi-track](examples/gallery_hic.png)
+
+### Variants
+
+One centred plot per variant, with the **variant allele fraction** in the title
+and the base change called out at the site.
+
+![variant VAF](examples/gallery_variants.png)
+
+### Utility tracks
+
+A generic **signal** (`.add_signal`), **GC content** (`.add_gc`), **interaction
+arcs** (`.add_arc`), **variants** (`.add_variants`) and a fully **custom** track
+(`.add_track`).
+
+![signal / GC / loops / variants / custom](examples/gallery_tracks.png)
+
+## Python API
+
+- `plot_view(...)` — one-call convenience (see [Quick start](#quick-start)).
+- `IGV` / `GenomeView` / `AlignmentView` — fluent builder; every `add_*` returns
+  `self`, and call order = top-to-bottom track order.
+- `summary(bam, region, reference)` — region QC stats.
+- `set_font_size(n)` / `apply_theme()` — styling.
+
+Full signature reference: **[docs/api.md](docs/api.md)**.
+
 ## Command line
 
 ```bash
 igvplot sample.bam chr1:1,000-2,000 -o locus.png \
     --features annotation.gb -r genome.fa \
-    --sites sites.bed --sashimi --link-mates \
-    --color-by pairOrientation --group-by strand --show-sequence
+    --sites sites.bed --sashimi --link-mates --view-as-pairs \
+    --color-by pairOrientation --group-by strand --show-sequence \
+    --coverage-strand --variants variants.vcf --gc
 ```
 
 Variant batch (one figure per VCF/BED site, with VAF):
@@ -130,11 +164,9 @@ igvplot sample.bam --vcf variants.vcf -r genome.fa --window 100 \
     --prefix variant --sort-by-variant --vaf
 ```
 
-## Regenerate the gallery
-
-```bash
-python examples/generate_gallery.py
-```
+Other flags: `--insert-length`/`--read-length` were removed as non-track QC
+plots; `--fontSize N`, `--display-mode`, `--sort-by`, `--basemod`,
+`--highlight-regions`, `--bigwig`, `--version` are available.
 
 ## Reference
 
@@ -147,32 +179,27 @@ python examples/generate_gallery.py
 | **Stats** | `igvplot.summary(bam, region, reference)` → reads, depth, variant/indel/junction counts, insert-size median. |
 | **Styling** | `set_font_size(n)` / `--fontSize n` scales every label; `set_title`, `set_legend`, `figsize`, `dpi`. |
 
-![signal / GC / loops / variants / custom](examples/gallery_tracks.png)
-
-![per-base VAF / mod stoichiometry / motifs](examples/gallery_epigenetics.png)
-
-GC, signal, interaction arcs, variants & custom tracks — and the epitranscriptomics
-tracks: per-base variant fraction, modification stoichiometry and IUPAC motifs
-(`DRACH` for the m6A context).
-
 MIT — see [LICENSE](LICENSE).
 
----
-
-## Development & publishing
+## Regenerate the gallery
 
 ```bash
-pip install -e ".[dev]"        # build, pytest, pytest-cov
-python -m pytest -q            # run the test suite
-python examples/generate_gallery.py   # regenerate the images above
-# or: make test / make lint / make gallery / make build
+python examples/generate_gallery.py     # or: make gallery
 ```
+
+## Docs and development
 
 - [docs/api.md](docs/api.md) — full API reference (regions, every track method, stats, CLI).
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup, style, module map.
 - [CHANGELOG.md](CHANGELOG.md) — release history.
-- CI runs tests on Python 3.9 & 3.11 and builds a wheel on every push
+- CI runs `ruff` lint + tests (warnings-as-errors) + a wheel build on every push
   (`.github/workflows/ci.yml`).
+
+```bash
+pip install -e ".[dev]"        # build, pytest, pytest-cov
+python -m pytest -q            # run the test suite
+# or: make test / make lint / make gallery / make build
+```
 
 ### Releases
 
