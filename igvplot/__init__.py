@@ -30,6 +30,7 @@ from .reads import (
 )
 from .features import load_features
 from .plot import build_legend_items, set_font_size
+from .theme import apply_theme
 from .bigwig import (
     BigWigUnavailableError,
     coverage_from_bedgraph,
@@ -58,6 +59,7 @@ __all__ = [
     "load_features",
     "build_legend_items",
     "set_font_size",
+    "apply_theme",
     "open_reference",
     "read_bigwig_coverage",
     "coverage_from_bedgraph",

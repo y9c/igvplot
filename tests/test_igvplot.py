@@ -383,3 +383,24 @@ def test_cli_fontsize_flag(tmp_path):
         ]
     )
     assert rc == 0 and out.exists() and out.stat().st_size > 0
+
+
+def test_feature_track_min_length_renders(tmp_path):
+    # a clean structural gene track hides the 1bp point-variant features
+    out = tmp_path / "feat.png"
+    plot_view(
+        bam_path=_data("sample.bam"),
+        region="chrTest:6,940-7,180",
+        features=_data("annotation.gb"),
+        min_feature_length=3,
+        out_path=str(out),
+        dpi=60,
+        figsize=(9, 5),
+    )
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_apply_theme_is_safe():
+    from igvplot import apply_theme
+    apply_theme()  # idempotent, must not raise
+    apply_theme()

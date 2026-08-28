@@ -38,6 +38,7 @@ from .reads import (
     open_reference,
 )
 from .region import Region
+from .theme import BED, COVERAGE, HIGH_BG, SASHIMI, TAD, apply_theme
 
 __all__ = ["GenomeView", "plot_view"]
 
@@ -83,6 +84,26 @@ def _parse_bed_features(bed_path: str) -> list:
                 score = None
         features.append((parts[0], s, e, name, score))
     return features
+
+
+def _style_gene_labels(ax) -> None:
+    """Restyle dna_features_viewer's inline labels to a clean, modern look.
+
+    Strips the boxy default annotation and applies a subtle rounded translucent
+    label with neutral text, so the feature names read clearly without the
+    dated grey boxes.
+    """
+    bbox = dict(
+        boxstyle="round,pad=0.14,rounding_size=0.35",
+        facecolor="white",
+        edgecolor="#d9dde3",
+        linewidth=0.6,
+        alpha=0.92,
+    )
+    for t in ax.texts:
+        t.set_bbox(bbox)
+        t.set_color("#333333")
+        t.set_fontsize(_fs(8))
 
 
 @dataclass
@@ -132,18 +153,40 @@ class GenomeView:
         source=None,
         weight: float = 1.2,
         plot_kwargs: Optional[dict] = None,
+        feature_types: Optional[set] = None,
+        min_feature_length: int = 0,
     ) -> "GenomeView":
         """Add a gene/feature track rendered by dna_features_viewer.
 
         ``source`` is anything accepted by :func:`igvplot.features.load_features`
         (a .gb/.gff path, a Biopython SeqRecord, a GraphicRecord, or a list of
         GraphicFeature).
+
+        ``feature_types`` keeps only features whose ``type`` is in the set
+        (e.g. ``{"gene", "CDS", "mRNA", "exon"}``) — handy to hide tiny point
+        variants and show a clean structural gene track. ``min_feature_length``
+        drops features shorter than this many base pairs (default 0 = keep all).
         """
         region = self.region
         if source is None:
             record = GraphicRecord(first_index=region.start, sequence_length=region.length, features=[])
         else:
             record = load_features(source, region=region)
+
+        feats = list(record.features or [])
+        if feature_types is not None:
+            feats = [f for f in feats if getattr(f, "feature_type", None) in feature_types]
+        if min_feature_length:
+            feats = [
+                f for f in feats
+                if abs(getattr(f, "end", 0) - getattr(f, "start", 0)) >= min_feature_length
+            ]
+        record = GraphicRecord(
+            first_index=region.start,
+            sequence_length=region.length,
+            features=feats,
+        ) if feats != list(record.features or []) else record
+
         kwargs = dict(
             with_ruler=False,
             draw_line=True,
@@ -154,6 +197,7 @@ class GenomeView:
 
         def _draw(ax, region):
             record.plot(ax=ax, **kwargs)
+            _style_gene_labels(ax)
             # Clip any ruler ticks left behind; the bottom axis owns the ruler.
             ax.set_xticks([])
             ax.tick_params(axis="x", which="both", length=0)
@@ -170,7 +214,7 @@ class GenomeView:
         reference: Optional[Union[str, Reference]] = None,
         min_mapq: int = 0,
         weight: float = 1.0,
-        fill_color: str = "#5b9bd5",
+        fill_color: str = COVERAGE,
         ylabel: str = "depth",
         ymax: Optional[float] = None,
     ) -> "GenomeView":
@@ -287,7 +331,7 @@ class GenomeView:
         self.tracks.append(Track(weight=weight, kind="hic", draw=_draw))
         return self
 
-    def add_tads(self, boundaries, color: str = "#c0392b", label: str = "TAD") -> "GenomeView":
+    def add_tads(self, boundaries, color: str = TAD, label: str = "TAD") -> "GenomeView":
         """Add a TAD/domain-boundary track: dashed vertical lines at ``boundaries``
         (0-based positions) with a small triangle marker."""
         import matplotlib.patches as mpatches
@@ -347,7 +391,7 @@ class GenomeView:
         self,
         bed_path: str,
         weight: float = 1.0,
-        color: str = "#7f8c8d",
+        color: str = BED,
         feature_type: str = "annotation",
     ) -> "GenomeView":
         """Add a BED/narrowPeak annotation track (pyGenomeTracks 'bed' style).
@@ -414,7 +458,7 @@ class GenomeView:
     def add_highlight_regions(
         self,
         regions,
-        color: str = "#ffe082",
+        color: str = HIGH_BG,
         alpha: float = 0.3,
     ) -> "GenomeView":
         """Shade background ``regions`` across every track.
@@ -455,7 +499,8 @@ class GenomeView:
                 if bam_path is None:
                     raise ValueError("add_coverage_overlay needs a bam_path per sample")
                 depths, _ = compute_coverage(bam_path, region, reference=reference, min_mapq=min_mapq)
-                ax.fill_between(x, depths, step="mid", color=color, alpha=0.5, lw=0.7, label=slabel)
+                ax.fill_between(x, depths, step="mid", color=color, alpha=0.32, lw=0, label=slabel)
+                ax.step(x, depths, where="mid", color=color, lw=1.1, zorder=3)
             top = ymax
             if top is None:
                 top = max(
@@ -466,7 +511,7 @@ class GenomeView:
             ax.set_yticks([])
             if len(samples) > 1:
                 ax.legend(fontsize=_fs(6), frameon=False, ncol=len(samples), loc="upper right")
-            ax.set_ylabel(label, fontsize=8)
+            ax.set_ylabel(label, fontsize=_fs(8))
 
         self.tracks.append(Track(weight=weight, kind="coverage_overlay", draw=_draw))
         return self
@@ -568,7 +613,7 @@ class GenomeView:
         bam_path: Optional[str] = None,
         reads: Optional[List[Read]] = None,
         min_counts: int = 1,
-        arc_color: str = "#c1272d",
+        arc_color: str = SASHIMI,
         weight: float = 1.2,
     ) -> "GenomeView":
         """Add a splice-junction (sashimi) track above the reads.
@@ -652,6 +697,7 @@ class GenomeView:
         if not self.tracks:
             raise ValueError("GenomeView has no tracks to render")
 
+        apply_theme()
         region = self.region
         n = len(self.tracks)
         fig = fig or plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -833,6 +879,8 @@ def plot_view(
     coverage_ymax: Optional[float] = None,
     figsize: Tuple[float, float] = (14, 8),
     dpi: int = 150,
+    feature_types: Optional[set] = None,
+    min_feature_length: int = 0,
     **kwargs,
 ) -> GenomeView:
     """One-call convenience to build and (optionally) save a full view.
@@ -904,7 +952,11 @@ def plot_view(
         ok_to_add = True
 
     if features is not None:
-        view.add_features(features)
+        view.add_features(
+            features,
+            feature_types=feature_types,
+            min_feature_length=min_feature_length,
+        )
         ok_to_add = True
 
     if show_coverage:

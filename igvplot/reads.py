@@ -15,6 +15,7 @@ import numpy as np
 import pysam
 
 from .region import Region
+from .theme import BASE_COLORS
 
 __all__ = [
     "Read",
@@ -28,15 +29,7 @@ __all__ = [
     "open_reference",
 ]
 
-# Canonical IGV-ish DNA base colours.
-BASE_COLORS = {
-    "A": "#1a9850",
-    "C": "#4575b4",
-    "G": "#d89712",
-    "T": "#d73027",
-    "N": "#9e9e9e",
-}
-
+# Canonical IGV-ish DNA base colours (see igvplot.theme for the palette).
 _VALID_BASES = frozenset("ACGTN")
 
 

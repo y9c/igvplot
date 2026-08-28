@@ -36,6 +36,13 @@ VCF = os.path.join(DATA, "variants.vcf")
 
 HERO_REGION = "chrTest:6,930-7,200"
 
+# show structural gene features only (drops the tiny point 'variation' features,
+# which are still annotatable via the dedicated site-marker track)
+STRUCTURAL = {"gene", "CDS", "mRNA", "exon", "transcript", "protein", "repeat_region"}
+
+HIGH = "#ffe0a3"
+HIGH2 = "#a8d8c8"
+
 
 def save(view, name, dpi=120):
     out = os.path.join(HERE, name)
@@ -55,11 +62,10 @@ def hero():
         link_mates=True,
         color_by="strand",
         show_sequence=True,
+        min_feature_length=3,
         figsize=(15, 9),
     )
     save(view, "gallery_hero.png", dpi=120)
-
-
 def base_level():
     """Zoomed base-resolution: every read base + colour-coded reference row."""
     view = igvplot.plot_view(
@@ -85,6 +91,7 @@ def color_pair():
         group_by="strand",
         link_mates=True,
         show_soft_clips=True,
+        min_feature_length=3,
         figsize=(13, 6),
     )
     save(view, "gallery_color_pair.png", dpi=120)
@@ -98,6 +105,7 @@ def color_readgroup():
         features=GB,
         color_by="readgroup",
         group_by="readgroup",
+        min_feature_length=3,
         figsize=(13, 6),
     )
     save(view, "gallery_color_readgroup.png", dpi=120)
@@ -122,7 +130,7 @@ def basemod():
         GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 7))
         .add_base_mods({7000: (1, "m6A"), 7010: (-1, "m5C"), 7021: (1, "m6A")})
         .add_reads(BAM, reference=REF, color_by="basemod")
-        .add_features(GB)
+        .add_features(GB, min_feature_length=3)
         .add_sites({7000: "SNP", 7010: "SNP", 7020: "DEL", 7030: "INS"})
     )
     save(view, "gallery_basemod.png", dpi=120)
@@ -132,11 +140,11 @@ def overlay():
     """Multi-sample coverage overlay + shaded highlight regions."""
     view = GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 6))
     view.add_coverage_overlay(
-        [(BAM, "#1f77b4", "replicate A"), (BAM, "#d62728", "replicate B")]
+        [(BAM, "#4C86C6", "replicate A"), (BAM, "#E8883A", "replicate B")]
     )
-    view.add_highlight_regions([(6960, 6990, "#ffe082", 0.35), (7040, 7070, "#a5d6a7", 0.35)])
+    view.add_highlight_regions([(6960, 6990, HIGH, 0.35), (7040, 7070, HIGH2, 0.35)])
     view.add_reads(BAM, reference=REF, color_by="strand", max_reads=80)
-    view.add_features(GB)
+    view.add_features(GB, min_feature_length=3)
     save(view, "gallery_overlay.png", dpi=120)
 
 
@@ -168,7 +176,7 @@ def hic():
     gv.add_scale_bar(window_bp=100)
     gv.add_hic(make_hic(region), cmap="Reds")
     gv.add_tads([7060, 7160])
-    gv.add_features(GB)
+    gv.add_features(GB, min_feature_length=3)
     gv.add_coverage(BAM, reference=REF)
     gv.add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation")
     save(gv, "gallery_hic.png", dpi=120)
@@ -196,6 +204,7 @@ def variants():
         sites={7000: "C>T"},
         color_by="basemod",
         basemod={7000: (1, "m6A"), 7010: (-1, "m5C")},
+        min_feature_length=3,
         figsize=(13, 6),
     )
     view.set_title(f"chrTest:7001 C>T    VAF={vaf:.2f} ({alt}/{depth})")

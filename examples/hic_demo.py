@@ -51,7 +51,7 @@ def main():
     gv.add_scale_bar(window_bp=100)
     gv.add_hic(mat, cmap="Reds")
     gv.add_tads(boundaries)
-    gv.add_features(os.path.join(DATA, "annotation.gb"))
+    gv.add_features(os.path.join(DATA, "annotation.gb"), min_feature_length=3)
     gv.add_coverage(os.path.join(DATA, "sample.bam"), reference=os.path.join(DATA, "genome.fa"))
     gv.add_reads(os.path.join(DATA, "sample.bam"), reference=os.path.join(DATA, "genome.fa"),
                  color_by="readgroup", group_by="pairOrientation")

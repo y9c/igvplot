@@ -17,6 +17,19 @@ import matplotlib.patches as mpatches
 
 from .reads import BASE_COLORS, Read, junction_counts
 from .region import Region
+from .theme import (
+    BASE_MOD_COLORS,
+    COVERAGE,
+    COVERAGE_MISMATCH,
+    DELETION,
+    INSERTION,
+    REF_BASE,
+    SASHIMI,
+    SITE,
+    STRAND_FORWARD,
+    STRAND_REVERSE,
+    STRAND_UNKNOWN,
+)
 
 __all__ = [
     "BASE_COLORS",
@@ -30,10 +43,14 @@ __all__ = [
     "draw_sites",
 ]
 
-# IGV-style: forward reads light, reverse reads dark.
-STRAND_COLORS = {"forward": "#c8c8c8", "reverse": "#6f6f6f", "unknown": "#4d4d4d"}
-MISMATCH_INS_COLOR = "#000000"
-DELETION_COLOR = "#e11a1a"
+# IGV-style: forward reads light, reverse reads dark (modern palette).
+STRAND_COLORS = {
+    "forward": STRAND_FORWARD,
+    "reverse": STRAND_REVERSE,
+    "unknown": STRAND_UNKNOWN,
+}
+MISMATCH_INS_COLOR = INSERTION
+DELETION_COLOR = DELETION
 
 # Per-category colour palettes for discrete colouring (read-group, proper-pair).
 COLOR_SCHEMES = {
@@ -158,22 +175,7 @@ _PAIR_ORIENTATION_COLORS = {
     "unpaired": "#9e9e9e",
 }
 
-# Default colours for common nucleotide modifications (by label/type).
-BASE_MOD_COLORS = {
-    "m6a": "#c0392b",
-    "m6am": "#c0392b",
-    "m5c": "#2c6fbb",
-    "5mc": "#2c6fbb",
-    "5mct": "#2c6fbb",
-    "5hmc": "#16a085",
-    "m1a": "#8e44ad",
-    "m7g": "#e67e22",
-    "ac4c": "#d35400",
-    "psi": "#7f8c8d",
-    "pseudo": "#7f8c8d",
-    "nm": "#3498db",
-    "default": "#9e9e9e",
-}
+# Default colours for common nucleotide modifications come from the theme.
 
 
 def base_mod_color(label: str) -> str:
@@ -596,7 +598,7 @@ def draw_read_track(
                         ha="center",
                         va="center",
                         fontsize=_fs(base_fontsize),
-                        color="#666666",
+                        color="#9aa5b1",
                         zorder=6,
                     )
                 elif p in r.bases:
@@ -609,7 +611,7 @@ def draw_read_track(
                         ha="center",
                         va="center",
                         fontsize=_fs(base_fontsize),
-                        color=base_colors.get(base, "#333333") if is_mismatch else "#b3b3b3",
+                        color=base_colors.get(base, "#333333") if is_mismatch else "#aeb8c4",
                         weight="bold" if is_mismatch else "normal",
                         zorder=6,
                     )
@@ -678,9 +680,9 @@ def draw_coverage_track(
     ax,
     depths: np.ndarray,
     region: Region,
-    fill_color: str = "#5b9bd5",
+    fill_color: str = COVERAGE,
     mismatch_counts: Optional[np.ndarray] = None,
-    mismatch_color: str = "#d62728",
+    mismatch_color: str = COVERAGE_MISMATCH,
     ylabel: str = "depth",
     ymax: Optional[float] = None,
 ) -> float:
@@ -696,11 +698,13 @@ def draw_coverage_track(
         depths,
         step="mid",
         color=fill_color,
-        alpha=0.55,
-        edgecolor=fill_color,
-        linewidth=0.6,
+        alpha=0.42,
+        edgecolor="none",
+        linewidth=0,
         zorder=1,
     )
+    # crisp stepped bounding line for a cleaner, more modern look
+    ax.step(x, depths, where="mid", color=fill_color, lw=1.3, zorder=2)
     if ymax is None:
         ymax = float(depths.max()) if n else 1.0
     ax.set_ylim(0, max(ymax, 1e-9))
@@ -747,7 +751,7 @@ def draw_sequence_track(
     legible = len(seq) * min_px_per_char <= ax_width_px
 
     if not legible:
-        ax.plot([region.start, region.end], [0, 0], color="#888888", lw=1.2, zorder=1)
+        ax.plot([region.start, region.end], [0, 0], color=REF_BASE, lw=1.2, zorder=1)
         ax.set_xlim(region.start, region.end)
         ax.set_ylim(-0.4, 0.4)
         ax.set_yticks([])
@@ -779,7 +783,7 @@ def draw_sashimi_track(
     ax,
     counts: Dict[Tuple[int, int], int],
     region: Region,
-    arc_color: str = "#c1272d",
+    arc_color: str = SASHIMI,
     min_counts: int = 1,
     max_height: float = 1.0,
     label_fontsize: float = 7,
@@ -798,28 +802,27 @@ def draw_sashimi_track(
 
     Returns the maximum arc height used.
     """
-    if not counts:
+    items = []
+    for (s, e), cnt in sorted(counts.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+        s = max(s, region.start)
+        e = min(e, region.end)
+        if e - s >= 1:
+            items.append((s, e, cnt))
+    if not items:
         ax.axis("off")
         return 0.0
 
-    max_count = max(counts.values())
-    region_len = max(1, region.length)
+    max_count = max(cnt for _, _, cnt in items)
+    largest_span = max(e - s for s, e, _ in items)
     lw_min, lw_max = thickness
-    height_used = 0.0
 
-    # deterministic jitter factor per arc (stable across re-renders)
-    items = sorted(counts.items(), key=lambda kv: (kv[0][0], kv[0][1]))
-    for i, ((s, e), cnt) in enumerate(items):
-        s = max(s, region.start)
-        e = min(e, region.end)
-        if e - s < 1:
-            continue
+    for i, (s, e, cnt) in enumerate(items):
         span = e - s
-        # height scaled by intron distance (longer intron -> taller arc)
-        h = max_height * (span / region_len)
+        # arc height proportional to intron distance, normalised so the
+        # largest junction fills the track (no dead headroom)
+        h = max_height * (span / largest_span) if largest_span else max_height
         # deterministic jitter around the height to reduce overdraw
         h *= 1.0 + jitter * ((i % 3) - 1)
-        height_used = max(height_used, h)
 
         # line thickness proportional to read support
         lw = lw_min + (lw_max - lw_min) * (cnt / max_count)
@@ -857,10 +860,10 @@ def draw_sashimi_track(
             zorder=3,
         )
 
-    ax.set_ylim(-0.05, max(max_height, height_used) * 1.25)
+    ax.set_ylim(-0.03, max_height * 1.12)
     ax.set_yticks([])
     ax.set_ylabel("junction", fontsize=_fs(8))
-    return height_used
+    return max_height
 
 
 def draw_base_mod_track(
@@ -907,7 +910,7 @@ def draw_sites(
     axes,
     region,
     sites: Dict[int, str],
-    color: str = "#9b59b6",
+    color: str = SITE,
     label_fontsize: float = 7,
 ) -> None:
     """Draw vertical site markers across all stacked axes, with level-stacking
@@ -958,7 +961,8 @@ def draw_sites(
 
         y = y_top + 0.6 * y_step - level * y_step
         for a in axes:
-            a.axvline(cx, color=color, ls="--", lw=1.0, zorder=0, alpha=0.8)
+            a.axvline(cx, color=color, ls="--", lw=1.0, zorder=0, alpha=0.7)
+        ax.plot(cx, y, marker="o", ms=3.2, color=color, zorder=8, alpha=0.9)
         ax.text(
             cx,
             y,
