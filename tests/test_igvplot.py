@@ -375,6 +375,107 @@ def test_cli_version_flag():
         cli.main(["--version"])
 
 
+def test_all_tracks_render(tmp_path):
+    """Every real track type must render (marker/highlight utilities are tested
+    in combination, since they span existing tracks)."""
+    import numpy as np
+
+    from igvplot import GenomeView
+
+    region = "chrTest:6,950-7,180"
+
+    def new():
+        return GenomeView(region=region, reference=_data("genome.fa"), figsize=(7, 5))
+
+    def build(kind):
+        g = new()
+        if kind == "reads":
+            g.add_reads(_data("sample.bam"), reference=_data("genome.fa"))
+        elif kind == "reads_overlay":
+            g.add_reads_overlay([(_data("sample.bam"), "#4c86c6", "A"), (_data("sample.bam"), "#e8883a", "B")], max_reads=30)
+        elif kind == "coverage":
+            g.add_coverage(_data("sample.bam"), reference=_data("genome.fa"))
+        elif kind == "coverage_overlay":
+            g.add_coverage_overlay([(_data("sample.bam"), "#4c86c6", "A"), (_data("sample.bam"), "#e8883a", "B")])
+        elif kind == "coverage_strands":
+            g.add_coverage_strands(_data("sample.bam"))
+        elif kind == "sashimi":
+            g.add_sashimi(_data("sample.bam"))
+        elif kind == "sashimi_overlay":
+            g.add_sashimi_overlay([(_data("sample.bam"), "#e63946", "a"), (_data("sample.bam"), "#457b9d", "b")])
+        elif kind == "junctions_bed":
+            bed = tmp_path / "j.bed"
+            bed.write_text("chrTest\t6970\t7060\tJ1\t25\n")
+            g.add_junctions_bed(str(bed))
+        elif kind == "features":
+            g.add_features(_data("annotation.gb"), min_feature_length=3)
+        elif kind == "sequence":
+            g.add_sequence(_data("genome.fa"))
+        elif kind == "gc":
+            g.add_gc()
+        elif kind == "signal":
+            g.add_signal(np.linspace(0, 1, g.region.length))
+        elif kind == "variants":
+            g.add_variants(_data("variants.vcf"))
+        elif kind == "variant_fraction":
+            g.add_variant_fraction(_data("sample.bam"), reference=_data("genome.fa"))
+        elif kind == "mod_fraction":
+            g.add_mod_fraction({6960: 0.8, 7000: (1, "m6A", 0.6)})
+        elif kind == "motifs":
+            g.add_motifs("DRACH")
+        elif kind == "arc":
+            g.add_arc([(6960, 7060, 2.0)])
+        elif kind == "bed":
+            bed = tmp_path / "p.bed"
+            bed.write_text("chrTest\t7000\t7005\tpeakA\t800\n")
+            g.add_bed_features(str(bed))
+        elif kind == "hic":
+            g.add_hic(np.random.default_rng(0).random((24, 24)) * 5)
+        elif kind == "tads":
+            g.add_tads([7060, 7160])
+        elif kind == "scale":
+            g.add_scale_bar(100)
+        elif kind == "basemods":
+            g.add_base_mods({7000: (1, "m6A")})
+        elif kind == "track":
+            g.add_track(lambda ax, region: ax.axhline(0.5))
+        return g
+
+    real_tracks = [
+        "reads", "reads_overlay", "coverage", "coverage_overlay", "coverage_strands",
+        "sashimi", "sashimi_overlay", "junctions_bed", "features", "sequence", "gc",
+        "signal", "variant_fraction", "mod_fraction", "motifs", "arc",
+        "bed", "hic", "tads", "scale", "basemods", "track",
+    ]
+    for kind in real_tracks:
+        out = tmp_path / f"{kind}.png"
+        build(kind).savefig(str(out), dpi=50)
+        assert out.exists() and out.stat().st_size > 0, f"{kind} failed"
+
+    # marker/highlight utilities render when combined with a base track
+    g = new()
+    g.add_sites({7000: "C>T"}).add_variants(_data("variants.vcf"))
+    g.add_highlight_regions([(6960, 6990)]).add_reads(_data("sample.bam"), max_reads=20)
+    out = tmp_path / "markers.png"
+    g.savefig(str(out), dpi=50)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_marker_only_utilities_need_a_track():
+    # sites / variants / highlight span existing tracks; alone they raise
+    import pytest
+    from igvplot import GenomeView
+    for build in (
+        lambda g: g.add_sites({7000: "C>T"}),
+        lambda g: g.add_variants("data/variants.vcf"),
+        lambda g: g.add_highlight_regions([(6960, 6990)]),
+    ):
+        g = GenomeView(region="chrTest:6,950-7,180")
+        build(g)
+        with pytest.raises(ValueError):
+            g.render()
+
+
 def test_base_mod_track_and_coloring(tmp_path):
     from igvplot import GenomeView
     gv = GenomeView(region="chrTest:6,990-7,050", figsize=(10, 6))
