@@ -153,6 +153,17 @@ def _parse_junction_bed(bed_path: str, chrom_filter: Optional[str] = None) -> di
     return counts
 
 
+def _iupac_to_regex(motif: str) -> str:
+    """Translate an IUPAC motif to a regex character class (case-insensitive)."""
+    classes = {
+        "A": "A", "C": "C", "G": "G", "T": "T", "U": "T",
+        "R": "AG", "Y": "CT", "S": "GC", "W": "AT", "K": "GT",
+        "M": "AC", "B": "CGT", "D": "AGT", "H": "ACT", "V": "ACG",
+        "N": "ACGT", ".": "ACGT",
+    }
+    return "".join(f"[{classes.get(ch.upper(), ch)}]" for ch in motif)
+
+
 def _style_gene_labels(ax) -> None:
     """Restyle dna_features_viewer's inline labels to a clean, modern look.
 
@@ -881,6 +892,144 @@ class GenomeView:
         self.tracks.append(Track(weight=weight, kind="custom", draw=_draw))
         return self
 
+    def add_mod_fraction(
+        self,
+        sites,
+        color: str = "#e63946",
+        ymax: float = 1.0,
+        weight: float = 1.0,
+        label: str = "mod%",
+    ) -> "GenomeView":
+        """Draw a per-site base-modification (stoichiometry) bar track.
+
+        ``sites`` maps a 0-based position to a fraction (0-1), or to
+        ``(strand, label, fraction)`` / ``(strand, label, fraction, color)``.
+        Each site is drawn as a bar of height = fraction, IGV-modification style.
+        """
+        import matplotlib.patches as mpatches
+
+        sites = self._parse_mod_fraction(sites)
+
+        def _draw(ax, region):
+            for pos, frac in sites.items():
+                if not region.overlaps(pos, pos + 1):
+                    continue
+                frac = max(0.0, min(float(ymax), frac))
+                ax.add_patch(
+                    mpatches.Rectangle(
+                        (pos + 0.15, 0), 0.7, frac,
+                        facecolor=color, edgecolor="none", alpha=0.9, zorder=2,
+                    )
+                )
+            ax.set_xlim(region.start, region.end)
+            ax.set_ylim(0, float(ymax) * 1.08)
+            ax.set_yticks([])
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="mod_fraction", draw=_draw))
+        return self
+
+    def add_variant_fraction(
+        self,
+        bam_path: str,
+        reference: Optional[Union[str, Reference]] = None,
+        min_mapq: int = 0,
+        color: str = "#e0492f",
+        weight: float = 1.0,
+        label: str = "VAF",
+    ) -> "GenomeView":
+        """Draw a per-base variant-allele-fraction (0-1) track from a BAM.
+
+        For each base the fraction of reads whose base differs from the
+        reference (mismatch pileup / depth) is drawn as a stepped area — useful
+        for SNP/allelic-imbalance hotspots.
+        """
+        region = self.region
+        ref = reference or self._reference
+        depths, mism = compute_coverage(bam_path, region, reference=ref, min_mapq=min_mapq)
+        frac = np.zeros(region.length, dtype=float)
+        if mism is not None:
+            np.divide(mism, depths, out=frac, where=depths > 0)
+
+        def _draw(ax, region):
+            x = np.arange(region.start, region.end, dtype=float)
+            ax.fill_between(x, frac, step="mid", color=color, alpha=0.85, lw=0, zorder=2)
+            ax.step(x, frac, where="mid", color=color, lw=1.1, zorder=3)
+            ax.set_xlim(region.start, region.end)
+            top = float(frac.max()) if frac.size else 1.0
+            ax.set_ylim(0, max(top, 1e-6) * 1.1)
+            ax.set_yticks([])
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="variant_fraction", draw=_draw))
+        return self
+
+    def add_motifs(
+        self,
+        motif: str,
+        reference: Optional[Union[str, Reference]] = None,
+        color: str = "#9b5de5",
+        weight: float = 0.7,
+        label: str = "motif",
+        max_hits: int = 500,
+    ) -> "GenomeView":
+        """Mark occurrences of a motif in the reference (IUPAC-enabled).
+
+        ``motif`` may contain IUPAC codes (e.g. ``DRACH`` for the m6A context);
+        each occurrence is drawn as a small bar spanning the motif length.
+        """
+        import re as _re
+
+        region = self.region
+        ref = reference or self._reference
+        if ref is None:
+            raise ValueError("add_motifs requires a reference fasta")
+        opened = not isinstance(ref, Reference)
+        r = ref if isinstance(ref, Reference) else Reference(ref)
+        seq = r.get(region.chrom, region.start, region.end)
+        if opened:
+            r.close()
+        pattern = _re.compile(_iupac_to_regex(motif), _re.I)
+        hits = []
+        for m in _re.finditer(pattern, seq):
+            ln = len(m.group(0) or motif)
+            hits.append((region.start + m.start(), ln))
+            if len(hits) >= max_hits:
+                break
+
+        def _draw(ax, region):
+            import matplotlib.patches as mpatches
+            for pos, ln in hits:
+                ax.add_patch(
+                    mpatches.Rectangle(
+                        (pos, 0.05), ln, 0.55,
+                        facecolor=color, edgecolor="none", alpha=0.9, zorder=2,
+                    )
+                )
+            ax.set_xlim(region.start, region.end)
+            ax.set_ylim(-0.1, 0.7)
+            ax.set_yticks([])
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="motifs", draw=_draw))
+        return self
+
+    @staticmethod
+    def _parse_mod_fraction(sites) -> Dict[int, float]:
+        """Normalise a mod-fraction spec to ``{0-based pos: fraction}``."""
+        out: Dict[int, float] = {}
+        for pos, vals in sites.items() if hasattr(sites, "items") else sites:
+            if hasattr(sites, "items"):
+                if isinstance(vals, (tuple, list)):
+                    frac = float(vals[0])
+                else:
+                    frac = float(vals)
+            else:
+                # (pos, frac) or (pos, strand, label, frac)
+                pos, frac = vals[0], float(vals[-1])
+            out[int(pos)] = max(0.0, min(1.0, frac))
+        return out
+
     def add_reads(
         self,
         bam_path: Optional[str] = None,
@@ -1182,41 +1331,6 @@ class GenomeView:
         )
 
 
-def insert_size_histogram(
-    bam_path: str,
-    region,
-    out_path: Optional[str] = None,
-    min_mapq: int = 0,
-    bins: int = 40,
-    color: str = "#5b9bd5",
-    figsize: Tuple[float, float] = (8, 5),
-    dpi: int = 150,
-) -> np.ndarray:
-    """Plot the paired-end insert-size (TLEN) distribution over ``region``
-    (the MISO ``--plot-insert-len`` histogram). Returns the insert sizes used.
-    """
-    import matplotlib.pyplot as plt
-
-    from .reads import compute_insert_sizes
-
-    region = Region.from_any(region)
-    sizes = compute_insert_sizes(bam_path, region, min_mapq=min_mapq)
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    if sizes.size:
-        ax.hist(sizes, bins=bins, color=color, edgecolor="white")
-        med = float(np.median(sizes))
-        ax.axvline(med, color="#c0392b", ls="--", lw=1.4, label=f"median {med:.0f} bp")
-        ax.legend(fontsize=_fs(11), frameon=False)
-    ax.set_xlabel("insert size (bp)")
-    ax.set_ylabel("fragments")
-    ax.set_title(f"Insert-length distribution {region.chrom}")
-    fig.tight_layout()
-    if out_path:
-        fig.savefig(out_path, dpi=dpi, bbox_inches="tight")
-        plt.close(fig)
-    return sizes
-
-
 # Friendly aliases for the single builder class. ``IGV`` and ``AlignmentView``
 # are the same object as ``GenomeView``; pick whichever reads best.
 IGV = AlignmentView = GenomeView
@@ -1261,6 +1375,9 @@ def plot_view(
     dpi: int = 150,
     feature_types: Optional[set] = None,
     min_feature_length: int = 0,
+    coverage_strand: bool = False,
+    variants=None,
+    gc: bool = False,
     **kwargs,
 ) -> GenomeView:
     """One-call convenience to build and (optionally) save a full view.
@@ -1340,7 +1457,10 @@ def plot_view(
         ok_to_add = True
 
     if show_coverage:
-        if bigwig is not None:
+        if coverage_strand and bam_path is not None:
+            view.add_coverage_strands(bam_path)
+            ok_to_add = True
+        elif bigwig is not None:
             view.add_coverage(bigwig=bigwig, ymax=coverage_ymax)
             ok_to_add = True
         elif bam_path is not None:
@@ -1348,6 +1468,14 @@ def plot_view(
                 bam_path, reference=reference, min_mapq=min_mapq, ymax=coverage_ymax
             )
             ok_to_add = True
+
+    if variants is not None:
+        view.add_variants(variants)
+        ok_to_add = True
+
+    if gc and reference is not None:
+        view.add_gc(reference)
+        ok_to_add = True
 
     if basemod is not None:
         view.add_base_mods(basemod)

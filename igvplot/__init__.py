@@ -52,7 +52,6 @@ from .view import (
     AlignmentView,
     GenomeView,
     IGV,
-    insert_size_histogram,
     plot_view,
     summary,
 )
@@ -69,7 +68,6 @@ __all__ = [
     "IGV",
     "AlignmentView",
     "plot_view",
-    "insert_size_histogram",
     "summary",
     "fetch_reads",
     "compute_coverage",

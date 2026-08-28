@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from . import __version__
 from .region import Region
 
 
@@ -115,7 +116,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out-format", default=None, help="Output format for batch plots (png/pdf/svg)")
     p.add_argument("--sort-by-variant", action="store_true", help="Sort reads by the variant base at each site")
     p.add_argument("--vaf", action="store_true", help="Annotate the variant allele fraction in the title")
-    p.add_argument("--insert-length", action="store_true", help="Plot the paired-end insert-length distribution")
     p.add_argument("--features", default=None, help="Gene/feature annotation (.gb, .gff, .gtf) for the gene track")
     p.add_argument("--reference", "-r", default=None, help="Reference fasta (enables mismatch detection)")
     p.add_argument("--sites", default=None, help="BED file of sites to mark across all tracks")
@@ -143,6 +143,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dpi", type=int, default=150, help="Output resolution")
     p.add_argument("--font-size", "--fontSize", dest="font_size", type=float, default=None,
                    help="Globally scale all label fonts (points; 8 = default design size)")
+    p.add_argument("-V", "--version", action="version", version=f"igvplot {__version__}")
+    p.add_argument("--coverage-strand", action="store_true", help="Strand-specific (sense/antisense) coverage")
+    p.add_argument("--variants", default=None, help="VCF/BED of variants to mark (REF>ALT)")
+    p.add_argument("--gc", action="store_true", help="Add a GC-content track (needs --reference)")
     return p
 
 
@@ -209,6 +213,9 @@ def _common_kwargs(args, region, out_path, title=None, sites=None, sort_base_pos
             _parse_highlight(args.highlight_regions) if args.highlight_regions else None
         ),
         basemod=basemod_from_args(args),
+        coverage_strand=args.coverage_strand,
+        variants=args.variants,
+        gc=args.gc,
         title=title,
         figsize=tuple(args.figsize),
         dpi=args.dpi,
@@ -228,25 +235,6 @@ def main(argv=None) -> int:
 
         set_font_size(args.font_size)
     out_fmt = args.out_format or ("png" if (args.out and "." in args.out) else "png")
-
-    # --- insert-length distribution --------------------------------------
-    if args.insert_length:
-        from .view import insert_size_histogram
-
-        region = _region_from_arg(args.region, args.window)
-        if region is None:
-            print("igvplot: --insert-length requires a region", file=sys.stderr)
-            return 2
-        insert_size_histogram(
-            args.bam, region, out_path=args.out, min_mapq=args.min_mapq, dpi=args.dpi
-        )
-        if args.out:
-            print(f"wrote {args.out}")
-        else:
-            import matplotlib.pyplot as plt
-
-            plt.show()  # actually display when no -o was given
-        return 0
 
     # --- variant / region batch mode -------------------------------------
     if args.vcf or args.bed:

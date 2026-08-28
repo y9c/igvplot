@@ -28,6 +28,11 @@ All notable changes to **igvplot** are recorded here. The format follows
 - README converted to an image-first gallery; CI adds a ruff lint job and runs
   tests with warnings-as-errors.
 
+### Changed
+- Removed the non-track QC histograms (`insert_size_histogram`, `read_length_histogram`
+  and the `--insert-length` / `--read-length` CLI modes); the insert-size statistic
+  remains available via `igvplot.summary`.
+
 ## [0.1.0] — 2026
 
 ### Added

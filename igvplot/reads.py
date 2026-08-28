@@ -183,8 +183,8 @@ def compute_insert_sizes(
 ) -> np.ndarray:
     """Collect absolute insert sizes (TLEN) of paired reads overlapping ``region``.
 
-    Returns a numpy array of insert sizes (0 if none). Used for the
-    MISO-style insert-length distribution plot.
+    Returns a numpy array of insert sizes (0 if none). Used by
+    :func:`igvplot.summary` for insert-size statistics.
     """
     region = Region.from_any(region)
     sizes: List[int] = []
