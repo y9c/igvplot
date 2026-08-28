@@ -163,3 +163,14 @@ python examples/generate_gallery.py   # regenerate the images above
 - [CHANGELOG.md](CHANGELOG.md) — release history.
 - CI runs tests on Python 3.9 & 3.11 and builds a wheel on every push
   (`.github/workflows/ci.yml`).
+
+### Releases
+
+```bash
+python scripts/bump_version.py --patch   # bump to v0.1.1 (update pyproject + __init__)
+python scripts/bump_version.py --patch --tag   # bump, commit, tag v0.1.1
+git push && git push --tags             # tag triggers .github/workflows/release.yml
+```
+
+Pushing a `v*` tag builds the wheel + sdist, verifies the wheel imports, and
+uploads the artifacts to a GitHub Release.
