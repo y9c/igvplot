@@ -240,7 +240,13 @@ class GenomeView:
         else:
             mismatches = None
 
-        self._reference = reference if isinstance(reference, Reference) else self._reference
+        # propagate any reference (path or Reference) so later add_reads /
+        # add_sashimi calls reuse it for mismatch detection
+        if reference is not None:
+            old = self._reference
+            self._reference = reference
+            if isinstance(old, Reference) and old is not reference:
+                old.close()
 
         def _draw(ax, region):
             draw_coverage_track(

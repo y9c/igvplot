@@ -484,3 +484,16 @@ def test_pathlib_paths_supported(tmp_path):
     gv.add_reads(Path(_data("sample.bam")), reference=Path(_data("genome.fa")), max_reads=40)
     gv.savefig(str(out), dpi=70)
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_coverage_reference_propagates_to_reads(tmp_path):
+    # a reference given to add_coverage must be reused by a later add_reads
+    from igvplot import IGV
+    gv = IGV("chrTest:6,990-7,010")
+    gv.add_coverage(_data("sample.bam"), reference=_data("genome.fa"))
+    assert gv._reference == _data("genome.fa")  # path stored for later tracks
+    gv.add_reads(_data("sample.bam"))  # no reference argument
+    gv.add_sites({7000: "C>T"})
+    out = tmp_path / "rp.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
