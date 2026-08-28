@@ -201,6 +201,24 @@ def compare():
     save(view, "gallery_compare.png", dpi=120)
 
 
+def new_tracks():
+    """Signal, GC-content, interaction arcs, variants and a custom track."""
+    import numpy as np
+    region = Region.from_any(HERO_REGION)
+    n = region.length
+    gv = (
+        GenomeView(region=HERO_REGION, reference=REF, figsize=(15, 10))
+        .add_gc(window=60, weight=0.9)
+        .add_signal((np.sin(np.linspace(0, 6, n)) * 0.5 + 0.5) * 9, ylabel="motif score", color="#9b5de5", weight=1.0)
+        .add_arc([(6930, 7060, 3.0), (6970, 7140, 2.0), (7060, 7200, 1.0)], label="loop", weight=1.8)
+        .add_variants(VCF, weight=0.7)
+        .add_coverage(BAM, reference=REF)
+        .add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation", max_reads=40)
+        .add_features(GB, min_feature_length=3)
+    )
+    save(gv, "gallery_tracks.png", dpi=120)
+
+
 def variants():
     """A single variant-centred plot with the variant allele fraction in the title."""
     vaf, depth, alt = igvplot.variant_allele_fraction(BAM, "chrTest", 7000, reference=REF)
@@ -231,6 +249,7 @@ def main():
     overlay()
     hic()
     compare()
+    new_tracks()
     variants()
     print("done.")
 

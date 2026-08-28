@@ -316,6 +316,38 @@ def test_summary_returns_stats():
     assert s["n_reads"] > 0 and s["max_depth"] > 0
 
 
+def test_signal_gc_variants_arc_track(tmp_path):
+    import numpy as np
+    from igvplot import GenomeView
+    out = tmp_path / "new.png"
+    gv = GenomeView(region="chrTest:6,950-7,180", reference=_data("genome.fa"), figsize=(10, 8))
+    n = gv.region.length
+    gv.add_signal(np.linspace(0, 1, n), ylabel="score")
+    gv.add_gc(window=60)
+    gv.add_variants(_data("variants.vcf"))
+    gv.add_arc([(6960, 7060, 2.0), (7000, 7140, 1.0)], label="loop")
+    gv.add_track(lambda ax, region: ax.axhline(0.5, color="k", lw=0.8))
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_signal_length_must_match_region():
+    import numpy as np
+    import pytest
+    from igvplot import GenomeView
+    gv = GenomeView(region="chrTest:6,950-7,180")
+    with pytest.raises(ValueError):
+        gv.add_signal(np.zeros(3))  # wrong length
+
+
+def test_add_gc_requires_reference():
+    import pytest
+    from igvplot import GenomeView
+    gv = GenomeView(region="chrTest:6,950-7,000")
+    with pytest.raises(ValueError):
+        gv.add_gc()
+
+
 def test_base_mod_track_and_coloring(tmp_path):
     from igvplot import GenomeView
     gv = GenomeView(region="chrTest:6,990-7,050", figsize=(10, 6))

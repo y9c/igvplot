@@ -1028,6 +1028,53 @@ def draw_sashimi_overlay_track(
     return float(n * band)
 
 
+def draw_interaction_arc(
+    ax,
+    start: float,
+    end: float,
+    region: Region,
+    color: str = "#e63946",
+    strength: float = 1.0,
+    max_height: float = 1.0,
+    label_fontsize: float = 9.5,
+) -> None:
+    """Draw a single dome-shaped interaction arc between two positions."""
+    s = max(start, region.start)
+    e = min(end, region.end)
+    if e - s < 1:
+        return
+    h = max_height * strength
+    verts = [(s, 0.0), (s, h), (e, h), (e, 0.0)]
+    codes = [
+        mpl.path.Path.MOVETO,
+        mpl.path.Path.CURVE4,
+        mpl.path.Path.CURVE4,
+        mpl.path.Path.CURVE4,
+    ]
+    ax.add_patch(
+        mpl.patches.PathPatch(
+            mpl.path.Path(verts, codes),
+            facecolor="none",
+            lw=1.6,
+            edgecolor=color,
+            alpha=0.9,
+            zorder=2,
+        )
+    )
+    if strength > 1.5:
+        ax.text(
+            (s + e) / 2.0,
+            h * 0.9,
+            f"{strength:.0f}",
+            ha="center",
+            va="center",
+            fontsize=_fs(label_fontsize - 2),
+            color=color,
+            weight="bold",
+            zorder=3,
+        )
+
+
 def draw_base_mod_track(
     ax,
     mods: Dict[int, tuple],

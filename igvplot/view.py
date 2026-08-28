@@ -24,6 +24,7 @@ from .plot import (
     build_legend_items,
     draw_base_mod_track,
     draw_coverage_track,
+    draw_interaction_arc,
     draw_read_track,
     draw_sashimi_overlay_track,
     draw_sashimi_track,
@@ -84,6 +85,39 @@ def _parse_bed_features(bed_path: str) -> list:
                     score = None
             features.append((parts[0], s, e, name, score))
     return features
+
+
+def _parse_variants(source: str, chrom_filter: Optional[str] = None) -> dict:
+    """Parse a VCF or BED of variants -> ``{0-based pos: "REF>ALT"}``."""
+    sites: Dict[int, str] = {}
+    lower = str(source).lower()
+    is_vcf = lower.endswith(".vcf") or lower.endswith(".vcf.gz")
+    with open(source) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 2:
+                continue
+            if is_vcf:
+                # VCF: POS is 1-based, need REF+ALT
+                if len(parts) < 5:
+                    continue
+                try:
+                    chrom, pos1, ref, alt = parts[0], int(parts[1]), parts[3], parts[4].split(",")[0]
+                except (ValueError, IndexError):
+                    continue
+            else:
+                # BED3+ : start is 0-based
+                try:
+                    chrom, pos1, ref, alt = parts[0], int(parts[1]) + 1, parts[3], parts[4]
+                except (ValueError, IndexError):
+                    continue
+            if chrom_filter is not None and chrom != chrom_filter:
+                continue
+            sites[pos1 - 1] = f"{ref}>{alt}"
+    return sites
 
 
 def _parse_junction_bed(bed_path: str, chrom_filter: Optional[str] = None) -> dict:
@@ -696,6 +730,167 @@ class GenomeView:
             ax.set_ylabel(label, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=weight, kind="junction_bed", draw=_draw))
+        return self
+
+    def add_signal(
+        self,
+        values,
+        color: str = COVERAGE,
+        ylabel: str = "signal",
+        ymax: Optional[float] = None,
+        weight: float = 1.0,
+    ) -> "GenomeView":
+        """Add a generic numeric signal track from a 1-D array.
+
+        ``values`` has length ``region.length`` and is drawn as a filled
+        stepped area aligned to the region. Useful for any score/profile
+        (e.g. a signal array, a per-base score from a model).
+        """
+        region = self.region
+        vals = np.asarray(values, dtype=float)
+        if vals.ndim != 1:
+            raise ValueError(f"add_signal expects a 1-D array, got {vals.ndim}D")
+        if vals.size != region.length:
+            raise ValueError(
+                f"signal length {vals.size} != region length {region.length}"
+            )
+
+        def _draw(ax, region):
+            x = np.arange(region.start, region.end, dtype=float)
+            ax.fill_between(x, vals, step="mid", color=color, alpha=0.4, lw=0, zorder=1)
+            ax.step(x, vals, where="mid", color=color, lw=1.2, zorder=2)
+            lo = min(0.0, float(vals.min())) if vals.size else 0.0
+            hi = ymax if ymax is not None else (float(vals.max()) if vals.size else 1.0)
+            ax.set_ylim(min(lo, hi), max(hi, 1e-9))
+            ax.set_yticks([])
+            ax.set_ylabel(ylabel, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="signal", draw=_draw))
+        return self
+
+    def add_gc(
+        self,
+        reference: Optional[Union[str, Reference]] = None,
+        window: int = 50,
+        step: int = 10,
+        color: str = "#2a9d8f",
+        ylabel: str = "GC%",
+        weight: float = 0.8,
+    ) -> "GenomeView":
+        """Add a GC-content track computed from the reference sequence.
+
+        GC% is computed in ``window``-bp windows every ``step`` bp across the
+        region and drawn as a stepped line. Requires a reference fasta.
+        """
+        region = self.region
+        ref = reference or self._reference
+        if ref is None:
+            raise ValueError("add_gc requires a reference fasta")
+        opened = not isinstance(ref, Reference)
+        r = ref if isinstance(ref, Reference) else Reference(ref)
+        seq = r.get(region.chrom, region.start, region.end)
+        if opened:
+            r.close()
+        if not seq:
+            raise ValueError(
+                f"reference has no sequence for {region.chrom!r} in {region!r}"
+            )
+
+        def _draw(ax, region):
+            xs, gcs = [], []
+            for start in range(region.start, region.end, step):
+                lo = start - region.start
+                hi = lo + window
+                if hi > len(seq):
+                    break
+                chunk = seq[lo:hi].upper()
+                if not chunk:
+                    continue
+                g = chunk.count("G") + chunk.count("C")
+                gc = 100.0 * g / len(chunk)
+                xs.append(start + window / 2)
+                gcs.append(gc)
+            if not xs:
+                ax.axis("off")
+                return
+            ax.fill_between(xs, gcs, step="mid", color=color, alpha=0.35, lw=0, zorder=1)
+            ax.step(xs, gcs, where="mid", color=color, lw=1.2, zorder=2)
+            ax.set_xlim(region.start, region.end)
+            ax.set_ylim(0, 100)
+            ax.set_yticks([])
+            ax.set_ylabel(ylabel, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="gc", draw=_draw))
+        return self
+
+    def add_variants(
+        self,
+        source: str,
+        color: str = "#e0492f",
+        weight: float = 0.6,
+        label: str = "variants",
+    ) -> "GenomeView":
+        """Add a variant track from a VCF or BED file.
+
+        Each variant is drawn as a vertical marker with a ``REF>ALT`` label
+        across every track (same as :meth:`add_sites` but auto-parsed).
+        """
+        region = self.region
+        sites = _parse_variants(source, region.chrom)
+        self.sites.update(sites)
+
+        def _draw(ax, region):
+            ax.set_xlim(region.start, region.end)
+            ax.set_yticks([])
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="variants", draw=_draw))
+        return self
+
+    def add_arc(
+        self,
+        pairs,
+        color: str = "#e63946",
+        weight: float = 2.0,
+        label: str = "interaction",
+        max_height: float = 1.0,
+    ) -> "GenomeView":
+        """Add generic interaction/loop arcs between genomic positions.
+
+        ``pairs`` is an iterable of ``(start, end)`` or ``(start, end, strength)``
+        where ``strength`` scales arc height (and labels arcs with strength > 1.5).
+        Useful for loops, RNA-RNA contacts or any pairwise connection.
+        """
+
+        def _draw(ax, region):
+            heights = []
+            for item in pairs:
+                if len(item) == 2:
+                    s, e, strength = item[0], item[1], 1.0
+                else:
+                    s, e, strength = item[0], item[1], float(item[2])
+                draw_interaction_arc(ax, s, e, region, color=color,
+                                     strength=strength, max_height=max_height)
+                heights.append(strength)
+            top = max_height * max(heights, default=1.0)
+            ax.set_xlim(region.start, region.end)
+            ax.set_ylim(-0.03, top * 1.12 + 0.03)
+            ax.set_yticks([])
+            ax.set_ylabel(label, fontsize=_fs(11))
+
+        self.tracks.append(Track(weight=weight, kind="arc", draw=_draw))
+        return self
+
+    def add_track(self, callback, weight: float = 1.0) -> "GenomeView":
+        """Add a fully custom track drawn by a user callback.
+
+        ``callback(ax, region)`` is called with the target axis and the
+        ``Region``; draw anything with matplotlib on ``ax``.
+        """
+        def _draw(ax, region):
+            callback(ax, region)
+
+        self.tracks.append(Track(weight=weight, kind="custom", draw=_draw))
         return self
 
     def add_reads(
