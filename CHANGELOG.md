@@ -6,6 +6,20 @@ All notable changes to **igvplot** are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Visual refresh (modern pyGenomeTracks-style look) across every track:
+  gradient-filled coverage/GC/signal areas, a filled modern gene bar (recoloured
+  from dna_features_viewer's defaults and sized to its track), horizontal track
+  labels, a slim in-figure legend band (no more floating outside legend),
+  subtler dotted site markers with halo'd labels, softer categorical palette
+  for read-group colouring, hairline read edges and receding match letters in
+  the base-resolution view.
+
+### Fixed
+- Gene/feature track no longer renders as a thin bar in a mostly-empty axis:
+  dna_features_viewer reserves a tall annotation canvas by default; the axis is
+  now clamped to the feature stack and the bar scaled to fill it.
+
 ### Added
 - Multi-sample comparison tracks: `.add_reads_overlay`, `.add_sashimi_overlay`
   (ggsashimi-style), `.add_coverage_strands` (strand-specific coverage),

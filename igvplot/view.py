@@ -21,6 +21,8 @@ from .bigwig import read_bigwig_coverage
 from .features import load_features
 from .plot import (
     _fs,
+    _gradient_area,
+    _tlabel,
     build_legend_items,
     draw_base_mod_track,
     draw_coverage_track,
@@ -39,7 +41,17 @@ from .reads import (
     junction_counts,
 )
 from .region import Region
-from .theme import BED, COVERAGE, HIGH_BG, SASHIMI, TAD, apply_theme
+from .theme import (
+    BED,
+    COVERAGE,
+    GENE_EDGE,
+    GENE_FACE,
+    HIGH_BG,
+    SASHIMI,
+    SPINE,
+    TAD,
+    apply_theme,
+)
 
 __all__ = ["GenomeView", "plot_view"]
 
@@ -184,6 +196,48 @@ def _style_gene_labels(ax) -> None:
         t.set_fontsize(_fs(11))
 
 
+def _style_gene_patches(ax, levels: int = 1) -> None:
+    """Recolour dna_features_viewer's feature bars to the modern gene palette
+    and thicken them so they fill the (clamped) track instead of floating as
+    hairlines inside a tall empty axis."""
+    # The bars are FancyArrowPatches whose thickness is set by
+    # ``mutation_scale`` in display units (~14px per unit at 72 dpi), so we
+    # size them relative to the final axis height.
+    h_in = ax.get_position().height * ax.figure.get_figheight()
+    fill = 0.62 / max(1, levels)  # bar fills 62% of each stacked band
+    ms = max(1.0, fill * h_in * 72.0 / 14.0)
+    for p in ax.patches:
+        try:
+            p.set_facecolor(GENE_FACE)
+            p.set_edgecolor(GENE_EDGE)
+            p.set_linewidth(0.5)
+            p.set_alpha(0.95)
+            p.set_mutation_scale(ms)
+        except (AttributeError, TypeError):
+            pass
+
+
+def _feature_levels(record) -> int:
+    """Number of stacked levels dna_features_viewer needs for ``record``.
+
+    Greedy interval packing (sort by start, first level whose last feature ends
+    before this one starts) — matches dfv's overlap stacking closely enough to
+    clamp the axis height.
+    """
+    ends: List[float] = []
+    for f in sorted(record.features or [], key=lambda f: int(f.start)):
+        s, e = float(f.start), float(f.end)
+        placed = False
+        for i, last in enumerate(ends):
+            if s >= last:
+                ends[i] = e
+                placed = True
+                break
+        if not placed:
+            ends.append(e)
+    return max(1, len(ends))
+
+
 @dataclass
 class Track:
     """A single stacked track: a drawing recipe plus a height-weight."""
@@ -271,7 +325,7 @@ class GenomeView:
 
         kwargs = dict(
             with_ruler=False,
-            draw_line=True,
+            draw_line=False,
             annotate_inline=True,
         )
         if plot_kwargs:
@@ -279,7 +333,13 @@ class GenomeView:
 
         def _draw(ax, region):
             record.plot(ax=ax, **kwargs)
+            # Clamp the axis to the feature stack: dna_features_viewer reserves
+            # a tall annotation canvas by default, which left a mostly empty
+            # track with the gene pinned to the bottom.
+            levels = _feature_levels(record)
+            _style_gene_patches(ax, levels)
             _style_gene_labels(ax)
+            ax.set_ylim(-0.5, (levels - 1) + 0.5)
             # Clip any ruler ticks left behind; the bottom axis owns the ruler.
             ax.set_xticks([])
             ax.tick_params(axis="x", which="both", length=0)
@@ -419,7 +479,7 @@ class GenomeView:
                 clip_on=True,
             )
             ax.set_yticks([])
-            ax.set_ylabel(ylabel, fontsize=_fs(11))
+            _tlabel(ax, ylabel)
 
         self.tracks.append(Track(weight=weight, kind="hic", draw=_draw))
         return self
@@ -430,25 +490,27 @@ class GenomeView:
         import matplotlib.patches as mpatches
 
         def _draw(ax, region):
+            half_w = max(2.0, region.length * 0.008)
             for b in boundaries:
                 b = float(b)
                 if not (region.start <= b < region.end):
                     continue
-                ax.axvline(b, color=color, ls="--", lw=1.0, alpha=0.8, zorder=2)
+                ax.axvline(b, color=color, ls=(0, (2, 2)), lw=0.9, alpha=0.6, zorder=2)
                 ax.add_patch(
                     mpatches.Polygon(
-                        [[b - 6.0, 0.0], [b + 6.0, 0.0], [b, 1.0]],
+                        [[b - half_w, 0.0], [b + half_w, 0.0], [b, 1.0]],
                         closed=True,
                         facecolor=color,
                         edgecolor="none",
+                        alpha=0.85,
                         zorder=3,
                     )
                 )
-            ax.axhline(0, color="#c9d1d9", lw=0.8, zorder=1)  # baseline
+            ax.axhline(0, color=SPINE, lw=0.8, zorder=1)  # baseline
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(-0.2, 1.0)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=0.4, kind="tads", draw=_draw))
         return self
@@ -461,7 +523,7 @@ class GenomeView:
             wb = int(window_bp) if window_bp else max(1, int(region.length * 0.25))
             ax.add_patch(
                 mpatches.Rectangle(
-                    (region.start, -0.12), wb, 0.24, facecolor="#333333", edgecolor="none"
+                    (region.start, -0.12), wb, 0.24, facecolor="#3d4451", edgecolor="none"
                 )
             )
             ax.text(
@@ -471,12 +533,12 @@ class GenomeView:
                 ha="center",
                 va="bottom",
                 fontsize=_fs(9.5),
-                color="#333333",
+                color="#3d4451",
             )
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(-0.3, 0.6)
             ax.set_yticks([])
-            ax.set_ylabel("scale", fontsize=8)
+            _tlabel(ax, "scale", fontsize=9)
 
         self.tracks.append(Track(weight=weight, kind="scale", draw=_draw))
         return self
@@ -506,16 +568,16 @@ class GenomeView:
                 h = min(1.0, 0.2 + float(score or 0) / 1000.0) if score is not None else 0.6
                 ax.add_patch(
                     mpatches.Rectangle(
-                        (s, 0), e - s, h, facecolor=color, edgecolor="#333333",
+                        (s, 0), e - s, h, facecolor=color, edgecolor="white",
                         lw=0.4, zorder=2,
                     )
                 )
                 if name:
-                    ax.text(s, h + 0.05, name, ha="left", va="bottom", fontsize=_fs(9), color="#333333")
+                    ax.text(s, h + 0.05, name, ha="left", va="bottom", fontsize=_fs(9), color="#57606a")
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(0, 1.15)
             ax.set_yticks([])
-            ax.set_ylabel(feature_type, fontsize=8)
+            _tlabel(ax, feature_type, fontsize=9)
 
         self.tracks.append(Track(weight=weight, kind="bed", draw=_draw))
         return self
@@ -603,7 +665,7 @@ class GenomeView:
             ax.set_yticks([])
             if len(samples) > 1:
                 ax.legend(fontsize=_fs(9), frameon=False, ncol=len(samples), loc="upper right")
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="coverage_overlay", draw=_draw))
         return self
@@ -640,7 +702,7 @@ class GenomeView:
             top = ymax if ymax is not None else max(float(fwd.max()), float(rev.max()), 1.0)
             ax.set_ylim(-top, top)
             ax.set_yticks([])
-            ax.set_ylabel(ylabel, fontsize=_fs(11))
+            _tlabel(ax, ylabel)
 
         self.tracks.append(Track(weight=weight, kind="coverage_strands", draw=_draw))
         return self
@@ -690,7 +752,7 @@ class GenomeView:
                 handles = [mpatches.Patch(facecolor=c, edgecolor="none", label=lab) for _, c, lab in samples]
                 ax.legend(handles=handles, fontsize=_fs(9), frameon=False,
                           ncol=min(3, len(samples)), loc="upper right")
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="reads_overlay", draw=_draw))
         return self
@@ -739,7 +801,7 @@ class GenomeView:
 
         def _draw(ax, region):
             draw_sashimi_track(ax, counts, region=region, arc_color=arc_color)
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="junction_bed", draw=_draw))
         return self
@@ -769,13 +831,16 @@ class GenomeView:
 
         def _draw(ax, region):
             x = np.arange(region.start, region.end, dtype=float)
-            ax.fill_between(x, vals, step="mid", color=color, alpha=0.4, lw=0, zorder=1)
-            ax.step(x, vals, where="mid", color=color, lw=1.2, zorder=2)
+            if vals.size and float(vals.min()) >= 0:
+                _gradient_area(ax, x, vals, color, zorder=1)
+            else:
+                ax.fill_between(x, vals, step="mid", color=color, alpha=0.4, lw=0, zorder=1)
+            ax.step(x, vals, where="mid", color=color, lw=1.0, zorder=2)
             lo = min(0.0, float(vals.min())) if vals.size else 0.0
             hi = ymax if ymax is not None else (float(vals.max()) if vals.size else 1.0)
             ax.set_ylim(min(lo, hi), max(hi, 1e-9))
             ax.set_yticks([])
-            ax.set_ylabel(ylabel, fontsize=_fs(11))
+            _tlabel(ax, ylabel)
 
         self.tracks.append(Track(weight=weight, kind="signal", draw=_draw))
         return self
@@ -825,12 +890,12 @@ class GenomeView:
             if not xs:
                 ax.axis("off")
                 return
-            ax.fill_between(xs, gcs, step="mid", color=color, alpha=0.35, lw=0, zorder=1)
-            ax.step(xs, gcs, where="mid", color=color, lw=1.2, zorder=2)
+            _gradient_area(ax, np.asarray(xs, float), np.asarray(gcs, float), color, zorder=1)
+            ax.step(xs, gcs, where="mid", color=color, lw=1.0, zorder=2)
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(0, 100)
             ax.set_yticks([])
-            ax.set_ylabel(ylabel, fontsize=_fs(11))
+            _tlabel(ax, ylabel)
 
         self.tracks.append(Track(weight=weight, kind="gc", draw=_draw))
         return self
@@ -849,7 +914,7 @@ class GenomeView:
     def add_arc(
         self,
         pairs,
-        color: str = "#e63946",
+        color: str = SASHIMI,
         weight: float = 2.0,
         label: str = "interaction",
         max_height: float = 1.0,
@@ -875,7 +940,7 @@ class GenomeView:
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(-0.03, top * 1.12 + 0.03)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="arc", draw=_draw))
         return self
@@ -895,7 +960,7 @@ class GenomeView:
     def add_mod_fraction(
         self,
         sites,
-        color: str = "#e63946",
+        color: str = SASHIMI,
         ymax: float = 1.0,
         weight: float = 1.0,
         label: str = "mod%",
@@ -924,7 +989,7 @@ class GenomeView:
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(0, float(ymax) * 1.08)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="mod_fraction", draw=_draw))
         return self
@@ -959,7 +1024,7 @@ class GenomeView:
             top = float(frac.max()) if frac.size else 1.0
             ax.set_ylim(0, max(top, 1e-6) * 1.1)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="variant_fraction", draw=_draw))
         return self
@@ -968,7 +1033,7 @@ class GenomeView:
         self,
         motif: str,
         reference: Optional[Union[str, Reference]] = None,
-        color: str = "#9b5de5",
+        color: str = "#8e7cc3",
         weight: float = 0.7,
         label: str = "motif",
         max_hits: int = 500,
@@ -1009,7 +1074,7 @@ class GenomeView:
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(-0.1, 0.7)
             ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
+            _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="motifs", draw=_draw))
         return self
@@ -1202,7 +1267,7 @@ class GenomeView:
             ax.set_yticks([])
             ax.set_xticks([])
             if label:
-                ax.set_ylabel(label, fontsize=_fs(11))
+                _tlabel(ax, label)
 
         self.tracks.append(Track(weight=weight, kind="spacer", draw=_draw))
         return self
@@ -1221,16 +1286,24 @@ class GenomeView:
         # clamp track weights to a small positive so a 0/negative weight can't
         # produce a zero-height (or degenerate) subplot
         heights = [max(float(t.weight), 1e-3) for t in self.tracks]
+        # reserve a slim top band for the alignment legend so it never
+        # overlaps the first track
+        top = 0.96
+        if self._title:
+            top = 0.88  # extra head-room for the title + site labels
+        will_legend = bool(self._show_legend and self._legend_items)
+        if will_legend:
+            top = min(top, 0.90)
         gs = GridSpec(
             n,
             1,
             figure=fig,
             height_ratios=heights,
             hspace=0.08,
-            left=0.06,
-            right=0.985,
+            left=0.085,
+            right=0.99,
             bottom=0.06,
-            top=0.96,
+            top=top,
         )
 
         axes: List = []
@@ -1260,17 +1333,14 @@ class GenomeView:
             ax.tick_params(axis="x", length=0)
             ax.spines["top"].set_visible(False)
             ax.spines["bottom"].set_visible(False)
-            for sp in ("left", "right"):
-                ax.spines[sp].set_visible(True)
+            ax.spines["right"].set_visible(False)
+            ax.spines["left"].set_visible(True)
+            ax.spines["left"].set_color(SPINE)
             ax.set_xlim(region.start, region.end)
-        bottoms = {
-            "left": True,
-            "right": False,
-            "top": False,
-            "bottom": True,
-        }
-        for sp, vis in bottoms.items():
-            bottom.spines[sp].set_visible(vis)
+        for sp in ("top", "right"):
+            bottom.spines[sp].set_visible(False)
+        bottom.spines["left"].set_color(SPINE)
+        bottom.spines["bottom"].set_color(SPINE)
 
         # Ensure dna_features_viewer didn't shrink the shared window.
         for ax in axes:
@@ -1285,25 +1355,32 @@ class GenomeView:
         )
 
         fig.align_ylabels(axes)
-        if self._show_legend and self._legend_items:
+        if will_legend:
             from matplotlib.patches import Patch
 
             handles = [
-                Patch(facecolor=color, edgecolor="grey", label=label)
+                Patch(facecolor=color, edgecolor="none", label=label)
                 for label, color in self._legend_items
             ]
-            fig.legend(
+            # Slim legend in the reserved band above the top track
+            # (pyGenomeTracks-style), instead of floating outside the figure.
+            leg = fig.legend(
                 handles=handles,
-                loc="upper left",
-                bbox_to_anchor=(1.01, 1.0),
+                loc="upper right",
+                bbox_to_anchor=(0.99, 0.95 if self._title else 1.0),
                 frameon=False,
-                fontsize=_fs(9.5),
+                fontsize=_fs(9),
+                labelcolor="#57606a",
+                handlelength=1.2,
+                handleheight=0.8,
+                borderaxespad=0,
                 title="alignments",
-                title_fontsize=_fs(9.5),
+                title_fontsize=_fs(9),
+                ncol=1 if len(handles) <= 3 else 2,
             )
+            leg.get_title().set_color("#57606a")
         if self._title:
             fig.suptitle(self._title, fontsize=_fs(16))
-            fig.subplots_adjust(top=0.93)
         return fig
 
     def savefig(self, out_path: str, dpi: Optional[int] = None, **kwargs) -> None:

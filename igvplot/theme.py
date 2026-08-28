@@ -13,21 +13,29 @@ import matplotlib as mpl
 # Palette (modern, colour-blind friendly where possible)
 # --------------------------------------------------------------------------- #
 # Track fills / lines.
-COVERAGE = "#3d7fc4"          # aligned coverage area
-COVERAGE_MISMATCH = "#e0492f"  # "variant pile" ticks
-STRAND_FORWARD = "#cdd8e8"     # forward-strand reads (pale steel)
-STRAND_REVERSE = "#708098"     # reverse-strand reads (slate)
+COVERAGE = "#4a7db5"           # aligned coverage area (gradient base colour)
+COVERAGE_MISMATCH = "#e5484d"  # "variant pile" ticks
+STRAND_FORWARD = "#ccd9ec"     # forward-strand reads (pale steel blue)
+STRAND_REVERSE = "#6b84a3"     # reverse-strand reads (slate blue)
 STRAND_UNKNOWN = "#9aa7b8"
-INSERTION = "#2c3e50"          # '+' insertion marker
-DELETION = "#e0492f"           # red deletion connector
-SITE = "#6c5ce7"               # vertical site markers
-SASHIMI = "#e63946"            # splice-junction arcs
-TAD = "#e63946"                # TAD boundary triangles
-SCALE = "#333333"
-BED = "#8d99ae"
+INSERTION = "#334155"          # '+' insertion marker
+DELETION = "#e5484d"           # red deletion connector
+SITE = "#94a3b8"               # vertical site markers (subtle slate)
+SITE_TEXT = "#64748b"          # site label text
+SASHIMI = "#e5484d"            # splice-junction arcs
+TAD = "#e5484d"                # TAD boundary triangles
+SCALE = "#3d4451"
+BED = "#94a3b8"
 HIGH_BG = "#ffe08a"
-REF_BASE = "#888888"
+REF_BASE = "#9aa5b1"
 READ_LINK = "#8d99ae"
+# Gene/feature track (dna_features_viewer bars are recoloured to this).
+GENE_FACE = "#5e6fa3"
+GENE_EDGE = "#ffffff"
+# Chrome: axis lines and secondary text.
+SPINE = "#dbe1e8"
+TEXT = "#3d4451"
+TEXT_SOFT = "#57606a"
 
 # Nucleotide base letters (mismatch / sequence row).
 BASE_COLORS = {
@@ -55,6 +63,21 @@ BASE_MOD_COLORS = {
     "default": "#9e9e9e",
 }
 
+# Modern muted categorical palette (read-group / group colouring) — replaces
+# the saturated matplotlib tableau defaults.
+CATEGORICAL = [
+    "#4a7db5",  # steel blue
+    "#e5484d",  # soft red
+    "#2a9d8f",  # teal
+    "#f39c12",  # amber
+    "#8e7cc3",  # muted violet
+    "#e78ac3",  # rose
+    "#66a61e",  # green
+    "#a0693a",  # sienna
+    "#00b4d8",  # cyan
+    "#7f8c8d",  # grey
+]
+
 
 def apply_theme() -> None:
     """Apply the modern matplotlib defaults used by every rendered figure.
@@ -70,12 +93,13 @@ def apply_theme() -> None:
             "figure.facecolor": "white",
             "axes.facecolor": "white",
             "savefig.facecolor": "white",
-            "axes.edgecolor": "#9aa5b1",
-            "axes.labelcolor": "#333333",
-            "axes.titlecolor": "#333333",
-            "text.color": "#333333",
-            "xtick.color": "#666666",
-            "ytick.color": "#666666",
+            "axes.edgecolor": SPINE,
+            "axes.linewidth": 0.9,
+            "axes.labelcolor": TEXT_SOFT,
+            "axes.titlecolor": TEXT,
+            "text.color": TEXT,
+            "xtick.color": "#8a94a6",
+            "ytick.color": "#8a94a6",
             "xtick.labelsize": 9,
             "ytick.labelsize": 8,
             "axes.spines.top": False,

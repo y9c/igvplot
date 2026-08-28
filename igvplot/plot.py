@@ -12,11 +12,13 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
+import matplotlib.patheffects as mpatheffects
 
 from .reads import BASE_COLORS, Read
 from .region import Region
 from .theme import (
     BASE_MOD_COLORS,
+    CATEGORICAL,
     COVERAGE,
     COVERAGE_MISMATCH,
     DELETION,
@@ -24,9 +26,11 @@ from .theme import (
     REF_BASE,
     SASHIMI,
     SITE,
+    SITE_TEXT,
     STRAND_FORWARD,
     STRAND_REVERSE,
     STRAND_UNKNOWN,
+    TEXT_SOFT,
 )
 
 __all__ = [
@@ -52,10 +56,9 @@ DELETION_COLOR = DELETION
 
 # Per-category colour palettes for discrete colouring (read-group, proper-pair).
 COLOR_SCHEMES = {
-    "readgroup": list(mcolors.TABLEAU_COLORS)
-    + ["#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"],
-    "proper": {"proper": "#1f77b4", "improper": "#d62728", "unpaired": "#9e9e9e"},
-    "mate": {"connected": "#1f77b4", "unconnected": "#c8c8c8"},
+    "readgroup": list(CATEGORICAL) + list(mcolors.TABLEAU_COLORS),
+    "proper": {"proper": "#4a7db5", "improper": "#e5484d", "unpaired": "#9e9e9e"},
+    "mate": {"connected": "#4a7db5", "unconnected": "#c8c8c8"},
 }
 
 # --------------------------------------------------------------------------- #
@@ -83,6 +86,57 @@ def set_font_size(size) -> None:
 def _fs(size):
     """Scale a design font size by the global font factor."""
     return size * _FONT_SCALE
+
+
+def _tlabel(ax, text: str, fontsize: float = 10.5) -> None:
+    """Modern horizontal track label (pyGenomeTracks-style), left of the axis."""
+    ax.set_ylabel(
+        text,
+        rotation=0,
+        ha="right",
+        va="center",
+        fontsize=_fs(fontsize),
+        color=TEXT_SOFT,
+    )
+
+
+def _gradient_area(ax, x: np.ndarray, y: np.ndarray, color: str, zorder: int = 1) -> None:
+    """Fill the stepped area under ``y`` with a soft vertical colour gradient.
+
+    Builds a step-mid polygon from the depth profile and clips a vertical
+    gradient image to it — a subtle, modern look versus a flat translucent
+    fill.
+    """
+    from matplotlib.path import Path
+    from matplotlib.patches import PathPatch
+
+    # step-mid outline: half-step before/after each value
+    mid = np.concatenate([[x[0]], (x[:-1] + x[1:]) / 2.0, [x[-1]]])
+    vx = np.repeat(mid, 2)[1:-1]
+    vy = np.repeat(y, 2)
+    verts = [(x[0], 0.0), *zip(vx, vy), (x[-1], 0.0), (x[0], 0.0)]
+    codes = [Path.MOVETO] + [Path.LINETO] * (len(verts) - 2) + [Path.CLOSEPOLY]
+    path = Path(verts, codes)
+    patch = PathPatch(path, facecolor="none", edgecolor="none", zorder=zorder)
+    ax.add_patch(patch)
+
+    ymax = max(float(np.max(y)) if len(y) else 1.0, 1e-9)
+    rgba = mcolors.to_rgba(color)
+    grad = np.linspace(0.0, 1.0, 256).reshape(-1, 1)
+    cmap = mcolors.LinearSegmentedColormap.from_list(
+        "_igvplot_area",
+        [(rgba[0], rgba[1], rgba[2], 0.30), (rgba[0], rgba[1], rgba[2], 0.92)],
+    )
+    ax.imshow(
+        grad,
+        aspect="auto",
+        cmap=cmap,
+        origin="lower",
+        extent=[float(x[0]), float(x[-1]), 0.0, ymax],
+        zorder=zorder,
+        interpolation="bilinear",
+        clip_path=patch,
+    )
 
 
 def _rgb_hex(color: Tuple[float, float, float]) -> str:
@@ -598,14 +652,15 @@ def draw_read_track(
                         )
                     )
 
-        # Read body.
+        # Read body (hairline white edge keeps adjacent rows crisp).
         ax.add_patch(
             mpatches.Rectangle(
                 (s, row - row_half),
                 e - s,
                 2 * row_half,
                 facecolor=body_color,
-                edgecolor="none",
+                edgecolor="white",
+                linewidth=0.25,
                 alpha=body_alpha,
                 zorder=2,
             )
@@ -684,6 +739,13 @@ def draw_read_track(
                 elif p in r.bases:
                     base = r.bases[p]
                     is_mismatch = p in r.mismatches
+                    if is_mismatch:
+                        letter_color = base_colors.get(base, "#333333")
+                        weight = "bold"
+                    else:
+                        # matching bases recede so mismatches pop
+                        letter_color = mcolors.to_rgba("#aeb8c4", 0.8)
+                        weight = "normal"
                     ax.text(
                         p + 0.5,
                         row,
@@ -691,8 +753,8 @@ def draw_read_track(
                         ha="center",
                         va="center",
                         fontsize=_fs(base_fontsize),
-                        color=base_colors.get(base, "#333333") if is_mismatch else "#aeb8c4",
-                        weight="bold" if is_mismatch else "normal",
+                        color=letter_color,
+                        weight=weight,
                         zorder=6,
                     )
         elif show_letters:
@@ -754,7 +816,7 @@ def draw_read_track(
         ax.set_ylim(-0.5, 0.5)
 
     ax.set_yticks([])
-    ax.set_ylabel(f"{n_used} reads", fontsize=_fs(11))
+    _tlabel(ax, f"{n_used} reads")
     return n_used
 
 
@@ -775,18 +837,11 @@ def draw_coverage_track(
     n = region.length
     x = np.arange(region.start, region.end, dtype=float)
 
-    ax.fill_between(
-        x,
-        depths,
-        step="mid",
-        color=fill_color,
-        alpha=0.42,
-        edgecolor="none",
-        linewidth=0,
-        zorder=1,
-    )
-    # crisp stepped bounding line for a cleaner, more modern look
-    ax.step(x, depths, where="mid", color=fill_color, lw=1.3, zorder=2)
+    # soft vertical gradient under the stepped depth profile
+    if n:
+        _gradient_area(ax, x, depths.astype(float), fill_color, zorder=1)
+    # crisp stepped bounding line on top
+    ax.step(x, depths, where="mid", color=fill_color, lw=1.0, zorder=2)
     if ymax is None:
         ymax = float(depths.max()) if n else 1.0
     ax.set_ylim(0, max(ymax, 1e-9))
@@ -800,12 +855,12 @@ def draw_coverage_track(
             [0] * len(pos),
             heights,
             color=mismatch_color,
-            lw=1.2,
+            lw=1.4,
             zorder=3,
         )
 
     ax.set_yticks([])
-    ax.set_ylabel(ylabel, fontsize=_fs(11))
+    _tlabel(ax, ylabel)
     return float(depths.max()) if n else 0.0
 
 
@@ -837,7 +892,7 @@ def draw_sequence_track(
         ax.set_xlim(region.start, region.end)
         ax.set_ylim(-0.4, 0.4)
         ax.set_yticks([])
-        ax.set_ylabel("ref", fontsize=_fs(11))
+        _tlabel(ax, "ref")
         return
     for i, base in enumerate(seq.upper()):
         if base not in base_colors:
@@ -858,7 +913,7 @@ def draw_sequence_track(
     ax.set_xlim(region.start, region.end)
     ax.set_ylim(-0.6, 0.6)
     ax.set_yticks([])
-    ax.set_ylabel("ref", fontsize=_fs(11))
+    _tlabel(ax, "ref")
 
 
 def draw_sashimi_track(
@@ -926,6 +981,8 @@ def draw_sashimi_track(
             facecolor="none",
             lw=lw,
             edgecolor=arc_color,
+            alpha=0.9,
+            capstyle="round",
             zorder=2,
         )
         ax.add_patch(patch)
@@ -939,12 +996,13 @@ def draw_sashimi_track(
             fontsize=_fs(label_fontsize),
             color=arc_color,
             weight="bold",
+            path_effects=[mpatheffects.withStroke(linewidth=2.2, foreground="white")],
             zorder=3,
         )
 
     ax.set_ylim(-0.03, max_height * 1.12)
     ax.set_yticks([])
-    ax.set_ylabel("junction", fontsize=_fs(11))
+    _tlabel(ax, "junction")
     return max_height
 
 
@@ -1009,6 +1067,7 @@ def draw_sashimi_overlay_track(
                 fontsize=_fs(label_fontsize - 2),
                 color=color,
                 weight="bold",
+                path_effects=[mpatheffects.withStroke(linewidth=2.0, foreground="white")],
                 zorder=3 + si,
             )
         # sample label on the left of its band
@@ -1024,7 +1083,7 @@ def draw_sashimi_overlay_track(
         )
     ax.set_ylim(-0.05, n * band + 0.05)
     ax.set_yticks([])
-    ax.set_ylabel("junction", fontsize=_fs(11))
+    _tlabel(ax, "junction")
     return float(n * band)
 
 
@@ -1033,7 +1092,7 @@ def draw_interaction_arc(
     start: float,
     end: float,
     region: Region,
-    color: str = "#e63946",
+    color: str = SASHIMI,
     strength: float = 1.0,
     max_height: float = 1.0,
     label_fontsize: float = 9.5,
@@ -1112,7 +1171,7 @@ def draw_base_mod_track(
     ax.set_xlim(region.start, region.end)
     ax.set_ylim(-0.5, 1.1)
     ax.set_yticks([])
-    ax.set_ylabel("bases", fontsize=_fs(11))
+    _tlabel(ax, "bases")
 
 
 def draw_sites(
@@ -1120,6 +1179,7 @@ def draw_sites(
     region,
     sites: Dict[int, str],
     color: str = SITE,
+    label_color: str = SITE_TEXT,
     label_fontsize: float = 9.5,
 ) -> None:
     """Draw vertical site markers across all stacked axes, with level-stacking
@@ -1170,7 +1230,7 @@ def draw_sites(
 
         y = y_top + 0.6 * y_step - level * y_step
         for a in axes:
-            a.axvline(cx, color=color, ls="--", lw=1.0, zorder=0, alpha=0.7)
+            a.axvline(cx, color=color, ls=(0, (2, 2)), lw=0.9, zorder=0, alpha=0.55)
         ax.plot(cx, y, marker="o", ms=3.2, color=color, zorder=8, alpha=0.9)
         ax.text(
             cx,
@@ -1179,7 +1239,8 @@ def draw_sites(
             ha="center",
             va="bottom",
             fontsize=_fs(label_fontsize),
-            color=color,
+            color=label_color,
+            path_effects=[mpatheffects.withStroke(linewidth=2.2, foreground="white")],
             zorder=7,
         )
 
