@@ -348,6 +348,33 @@ def test_add_gc_requires_reference():
         gv.add_gc()
 
 
+def test_mod_fraction_motifs_variant_fraction(tmp_path):
+    from igvplot import GenomeView
+    out = tmp_path / "epi.png"
+    gv = GenomeView(region="chrTest:6,950-7,180", reference=_data("genome.fa"), figsize=(10, 8))
+    gv.add_variant_fraction(_data("sample.bam"), reference=_data("genome.fa"))
+    gv.add_mod_fraction({6960: (1, "m6A", 0.8), 7010: (-1, "m5C", 0.3, "#2c6fbb")})
+    gv.add_motifs("DRACH")
+    gv.add_reads(_data("sample.bam"), reference=_data("genome.fa"), max_reads=40)
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_iupac_motif_regex_matches():
+    from igvplot.view import _iupac_to_regex
+    import re
+    # DRACH = D R A C H  (D={AGT}, R={AG}, H={ACT}) — the canonical m6A context
+    pat = re.compile(_iupac_to_regex("DRACH"), re.I)
+    assert pat.match("GAACT") is not None  # D=G, R=A, A, C, H=T
+    assert pat.match("TTTTT") is None
+
+
+def test_cli_version_flag():
+    from igvplot import cli
+    with pytest.raises(SystemExit):
+        cli.main(["--version"])
+
+
 def test_base_mod_track_and_coloring(tmp_path):
     from igvplot import GenomeView
     gv = GenomeView(region="chrTest:6,990-7,050", figsize=(10, 6))

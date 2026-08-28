@@ -219,6 +219,23 @@ def new_tracks():
     save(gv, "gallery_tracks.png", dpi=120)
 
 
+def epi():
+    """Per-base variant fraction, modification stoichiometry and IUPAC motifs."""
+    gv = (
+        GenomeView(region=HERO_REGION, reference=REF, figsize=(15, 9))
+        .add_variant_fraction(BAM, reference=REF, weight=1.0)
+        .add_mod_fraction(
+            {6950: (1, "m6A", 0.75), 7060: (-1, "m5C", 0.4), 7130: (1, "m6A", 0.3)},
+            label="stoich",
+            weight=1.0,
+        )
+        .add_motifs("DRACH", label="m6A motif", weight=0.7)
+        .add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation", max_reads=60)
+        .add_features(GB, min_feature_length=3)
+    )
+    save(gv, "gallery_epigenetics.png", dpi=120)
+
+
 def variants():
     """A single variant-centred plot with the variant allele fraction in the title."""
     vaf, depth, alt = igvplot.variant_allele_fraction(BAM, "chrTest", 7000, reference=REF)
@@ -250,6 +267,7 @@ def main():
     hic()
     compare()
     new_tracks()
+    epi()
     variants()
     print("done.")
 
