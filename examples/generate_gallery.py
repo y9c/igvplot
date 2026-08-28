@@ -211,7 +211,7 @@ def new_tracks():
         .add_gc(window=60, weight=0.9)
         .add_signal((np.sin(np.linspace(0, 6, n)) * 0.5 + 0.5) * 9, ylabel="motif score", color="#9b5de5", weight=1.0)
         .add_arc([(6930, 7060, 3.0), (6970, 7140, 2.0), (7060, 7200, 1.0)], label="loop", weight=1.8)
-        .add_variants(VCF, weight=0.7)
+        .add_variants(VCF)
         .add_coverage(BAM, reference=REF)
         .add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation", max_reads=40)
         .add_features(GB, min_feature_length=3)

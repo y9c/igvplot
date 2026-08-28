@@ -4,6 +4,30 @@ All notable changes to **igvplot** are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); this project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Multi-sample comparison tracks: `.add_reads_overlay`, `.add_sashimi_overlay`
+  (ggsashimi-style), `.add_coverage_strands` (strand-specific coverage),
+  `.add_junctions_bed` (precomputed junctions), `add_coverage(strand=...)`.
+- Generic/utility tracks: `.add_signal` (1-D signal), `.add_gc` (GC content),
+  `.add_variants` (VCF/BED variants), `.add_arc` (interaction/loop arcs),
+  `.add_track` (custom callback).
+- `igvplot.summary(bam, region, reference)` → region QC statistics.
+- `draw_interaction_arc` primitive and `add_coverage(strand=...)` pileup filter.
+
+### Fixed
+- Reference lifecycle: `add_coverage` propagates a reference to later tracks and
+  closes a replaced held `Reference`; `add_sequence` closes the fasta it opens.
+- `GenomeView.close()` releases a held reference (called from `savefig`).
+- Deletions merged into contiguous spans (correct `show_deletion_text` lengths).
+- `add_coverage_overlay` no longer scans the BAM twice per sample.
+- `_pack_pairs_into_rows` dedup (pairs processed once), IGV "view as pairs".
+- `coverage_from_bedgraph` accepts interval tuples; `pathlib.Path` supported
+  everywhere; centred `chr:pos` regions; degenerate insert-colormap guard.
+- README converted to an image-first gallery; CI adds a ruff lint job and runs
+  tests with warnings-as-errors.
+
 ## [0.1.0] — 2026
 
 ### Added

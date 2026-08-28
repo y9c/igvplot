@@ -823,28 +823,15 @@ class GenomeView:
         self.tracks.append(Track(weight=weight, kind="gc", draw=_draw))
         return self
 
-    def add_variants(
-        self,
-        source: str,
-        color: str = "#e0492f",
-        weight: float = 0.6,
-        label: str = "variants",
-    ) -> "GenomeView":
-        """Add a variant track from a VCF or BED file.
+    def add_variants(self, source: str, color: str = "#e0492f") -> "GenomeView":
+        """Mark variants from a VCF/BED file as ``REF>ALT`` across every track.
 
-        Each variant is drawn as a vertical marker with a ``REF>ALT`` label
-        across every track (same as :meth:`add_sites` but auto-parsed).
+        Parses the file and registers the sites (like :meth:`add_sites`), so the
+        variant positions and labels appear as markers across all stacked tracks.
         """
         region = self.region
         sites = _parse_variants(source, region.chrom)
         self.sites.update(sites)
-
-        def _draw(ax, region):
-            ax.set_xlim(region.start, region.end)
-            ax.set_yticks([])
-            ax.set_ylabel(label, fontsize=_fs(11))
-
-        self.tracks.append(Track(weight=weight, kind="variants", draw=_draw))
         return self
 
     def add_arc(

@@ -1,20 +1,32 @@
 """igvplot: IGV-style genomic visualization in matplotlib.
 
-Stack aligned reads, per-base coverage and gene/feature annotation tracks
-(drawn by ``dna_features_viewer``) on shared x-axes, with read-level mismatch,
-insertion and deletion display.
+Stack aligned reads, per-base coverage, gene/feature annotation, splice
+junctions, base modifications, Hi-C/TAD and other signal tracks on shared
+x-axes, with read-level mismatch / insertion / deletion display.
 
-Typical usage::
+Two ways to build a figure:
 
-    import igvplot
-    view = igvplot.plot_view(
-        bam_path="sample.bam",
-        region="chr1:1,000-2,000",
-        features="annotation.gb",
-        reference="genome.fa",
-        sites={1050: "m6A site", 1200: "SNP"},
-        out_path="locus.png",
-    )
+1. One-call convenience::
+
+       view = igvplot.plot_view(
+           bam_path="sample.bam", region="chr1:1,000-2,000",
+           features="annotation.gb", reference="genome.fa",
+           sites={1050: "m6A"}, sashimi=True, out_path="locus.png",
+       )
+
+2. Fluent builder (``IGV``/``GenomeView``/``AlignmentView`` are the same class)::
+
+       from igvplot import IGV
+       igv = IGV("chr1:1,000-2,000", reference="genome.fa")
+       igv.add_reads("rna.bam", color_by="readgroup").add_coverage("rna.bam")
+       igv.add_sashimi("rna.bam").add_features("annotation.gb")
+       igv.add_base_mods({1050: (1, "m6A")}).add_sites({1050: "m6A"})
+       igv.savefig("locus.png")
+
+Track adders include reads (overlay), coverage (strand/overlay), sashimi
+(overlay/junctions-BED), features, sequence, sites, base mods, variants, GC,
+signal, interaction arcs, Hi-C/TAD/BED/scale and fully custom tracks
+(``add_track``). ``igvplot.summary`` returns region QC stats.
 """
 from .region import Region
 from .reads import (
