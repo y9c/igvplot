@@ -70,12 +70,13 @@ def base_level():
     """Zoomed base-resolution: every read base + colour-coded reference row."""
     view = igvplot.plot_view(
         bam_path=BAM,
-        region="chrTest:6,995-7,040",
+        region="chrTest:6,995-7,030",
         reference=REF,
-        sites={7000: "C>T", 7010: "A>G", 7020: "Δ3bp", 7030: "+CC"},
+        sites={7000: "C>T", 7010: "A>G", 7020: "Δ3bp"},
         show_all_bases=True,
         show_sequence=True,
         color_by="strand",
+        max_reads=70,
         figsize=(15, 7),
     )
     save(view, "gallery_base_level.png", dpi=130)
@@ -117,7 +118,7 @@ def color_mapq():
         region=HERO_REGION,
         reference=REF,
         color_by="mapq",
-        colormap="plasma",
+        colormap="Blues",
         group_by="strand",
         figsize=(13, 6),
     )

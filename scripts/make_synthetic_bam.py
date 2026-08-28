@@ -273,7 +273,8 @@ def main():
             pos = start + off
             if not (PLOT_REGION[0] <= pos < PLOT_REGION[1]):
                 edits = {"mismatches": {off: alt_base(seq_chars[pos])}}
-        add_read(start, READ_LEN, edits)
+        # vary mapping quality so the mapq colour mode shows a real gradient
+        add_read(start, READ_LEN, edits, mapq=60 - (start % 20))
 
     # targeted mutant reads in the demo region
     for label, pos, ftype, _note, count in EVENTS:
