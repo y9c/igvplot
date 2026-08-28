@@ -13,7 +13,12 @@ All notable changes to **igvplot** are recorded here. The format follows
 - Generic/utility tracks: `.add_signal` (1-D signal), `.add_gc` (GC content),
   `.add_variants` (VCF/BED variants), `.add_arc` (interaction/loop arcs),
   `.add_track` (custom callback).
+- Epitranscriptomics tracks: `.add_variant_fraction` (per-base VAF),
+  `.add_mod_fraction` (per-site modification stoichiometry),
+  `.add_motifs` (IUPAC motif scan, e.g. `DRACH`).
 - `igvplot.summary(bam, region, reference)` → region QC statistics.
+- `python -m igvplot`, `--version`/`-V`, and CLI flags `--coverage-strand`,
+  `--variants`, `--gc`; `docs/api.md` + `Makefile` + `.editorconfig`.
 - `draw_interaction_arc` primitive and `add_coverage(strand=...)` pileup filter.
 
 ### Fixed

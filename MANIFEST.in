@@ -6,6 +6,7 @@ include LICENSE
 include py.typed
 recursive-include igvplot *.py py.typed
 recursive-include tests *.py
+recursive-include docs *.md
 recursive-include data *
 recursive-include examples *.png *.py *.ini
 recursive-include scripts *.py

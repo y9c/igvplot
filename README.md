@@ -165,8 +165,10 @@ MIT — see [LICENSE](LICENSE).
 pip install -e ".[dev]"        # build, pytest, pytest-cov
 python -m pytest -q            # run the test suite
 python examples/generate_gallery.py   # regenerate the images above
+# or: make test / make lint / make gallery / make build
 ```
 
+- [docs/api.md](docs/api.md) — full API reference (regions, every track method, stats, CLI).
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup, style, module map.
 - [CHANGELOG.md](CHANGELOG.md) — release history.
 - CI runs tests on Python 3.9 & 3.11 and builds a wheel on every push
