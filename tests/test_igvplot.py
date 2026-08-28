@@ -122,6 +122,18 @@ def test_print_n_skip_not_deletion():
     assert dl == 6  # only the 6 real 3bp-deletion reads
 
 
+def test_deletions_merged_into_spans():
+    # adjacent single-base deletions must merge into one contiguous span
+    region = Region("chrTest", 6900, 7250)
+    reads = fetch_reads(_data("sample.bam"), region, reference=_data("genome.fa"))
+    three_bp = [r for r in reads if any(s == 7020 for s, _ in r.deletions)]
+    assert three_bp
+    # no per-base fragments: every 7020 span is the full 3 bp
+    assert all(e - s == 3 for r in three_bp for s, e in r.deletions if s == 7020)
+    # spans are stored as (start, end), end > start
+    assert all(e > s for r in reads for s, e in r.deletions)
+
+
 # --------------------------------------------------------------------------- #
 # RNA-seq junctions / sashimi
 # --------------------------------------------------------------------------- #

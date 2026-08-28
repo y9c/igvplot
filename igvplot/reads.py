@@ -339,8 +339,16 @@ def _events_for_segment(
 
     read.mismatches = mismatches
     read.insertions = insertions
+    # merge adjacent single-base deletions into contiguous spans so the deletion
+    # reads as one event (with the correct length) instead of per-base entries
+    merged: List[Tuple[int, int]] = []
+    for s, e in sorted(deletions):
+        if merged and s == merged[-1][1]:
+            merged[-1] = (merged[-1][0], e)
+        else:
+            merged.append((s, e))
     read.deletions = [
-        (max(s, region.start), min(e, region.end)) for s, e in deletions if e > s
+        (max(s, region.start), min(e, region.end)) for s, e in merged if e > s
     ]
     return read
 
