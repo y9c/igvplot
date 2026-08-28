@@ -36,7 +36,7 @@ LENGTH = 20000
 SEED = 42
 
 READ_LEN = 120
-COVERAGE = 24  # nominal depth -> fragment step = READ_LEN // COVERAGE
+COVERAGE = 50  # nominal depth -> fragment step = READ_LEN // COVERAGE
 
 # ---- reference -----------------------------------------------------------
 rng = random.Random(SEED)
@@ -263,13 +263,16 @@ def main():
         records.append((r2, seg2))
         read_id += 1
 
-    # baseline tiling fragments
+    # baseline tiling fragments (dense => deep coverage)
     for start in range(0, LENGTH - READ_LEN, step):
-        # occasional random base error so the view looks "real"
+        # occasional random base error so the view looks "real" -- kept OUTSIDE
+        # the demo region so the exact, tested mutation counts stay deterministic
         edits = None
         if rng.random() < 0.004:
             off = rng.randrange(READ_LEN)
-            edits = {"mismatches": {off: alt_base(seq_chars[start + off])}}
+            pos = start + off
+            if not (PLOT_REGION[0] <= pos < PLOT_REGION[1]):
+                edits = {"mismatches": {off: alt_base(seq_chars[pos])}}
         add_read(start, READ_LEN, edits)
 
     # targeted mutant reads in the demo region

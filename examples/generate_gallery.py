@@ -57,7 +57,7 @@ def hero():
         region=HERO_REGION,
         features=GB,
         reference=REF,
-        sites={7000: "SNP C>T", 7010: "SNP", 7020: "DEL 3bp", 7030: "INS CC"},
+        sites={7000: "C>T", 7010: "A>G", 7020: "Δ3bp", 7030: "+CC"},
         sashimi=True,
         link_mates=True,
         color_by="strand",
@@ -72,7 +72,7 @@ def base_level():
         bam_path=BAM,
         region="chrTest:6,995-7,040",
         reference=REF,
-        sites={7000: "SNP C>T", 7010: "SNP", 7020: "DEL 3bp", 7030: "INS CC"},
+        sites={7000: "C>T", 7010: "A>G", 7020: "Δ3bp", 7030: "+CC"},
         show_all_bases=True,
         show_sequence=True,
         color_by="strand",
@@ -182,27 +182,18 @@ def hic():
     save(gv, "gallery_hic.png", dpi=120)
 
 
-def insert():
-    igvplot.insert_size_histogram(
-        BAM,
-        HERO_REGION,
-        out_path=os.path.join(HERE, "gallery_insert.png"),
-        dpi=120,
-        figsize=(7, 5),
-    )
-    print("saved examples/gallery_insert.png")
-
-
 def variants():
     """A single variant-centred plot with the variant allele fraction in the title."""
     vaf, depth, alt = igvplot.variant_allele_fraction(BAM, "chrTest", 7000, reference=REF)
     view = igvplot.plot_view(
         bam_path=BAM,
-        region="chrTest:6,930-7,070",
+        region="chrTest:6,930-7,100",
         reference=REF,
         features=GB,
         sites={7000: "C>T"},
-        color_by="basemod",
+        color_by="strand",
+        show_sequence=True,
+        show_all_bases=False,
         basemod={7000: (1, "m6A"), 7010: (-1, "m5C")},
         min_feature_length=3,
         figsize=(13, 6),
@@ -220,7 +211,6 @@ def main():
     basemod()
     overlay()
     hic()
-    insert()
     variants()
     print("done.")
 

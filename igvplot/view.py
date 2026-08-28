@@ -103,7 +103,7 @@ def _style_gene_labels(ax) -> None:
     for t in ax.texts:
         t.set_bbox(bbox)
         t.set_color("#333333")
-        t.set_fontsize(_fs(8))
+        t.set_fontsize(_fs(11))
 
 
 @dataclass
@@ -326,7 +326,7 @@ class GenomeView:
                 clip_on=True,
             )
             ax.set_yticks([])
-            ax.set_ylabel(ylabel, fontsize=_fs(8))
+            ax.set_ylabel(ylabel, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=weight, kind="hic", draw=_draw))
         return self
@@ -376,7 +376,7 @@ class GenomeView:
                 label or _human_bp(wb),
                 ha="center",
                 va="bottom",
-                fontsize=_fs(7),
+                fontsize=_fs(9.5),
                 color="#333333",
             )
             ax.set_xlim(region.start, region.end)
@@ -417,7 +417,7 @@ class GenomeView:
                     )
                 )
                 if name:
-                    ax.text(s, h + 0.05, name, ha="left", va="bottom", fontsize=_fs(6), color="#333333")
+                    ax.text(s, h + 0.05, name, ha="left", va="bottom", fontsize=_fs(9), color="#333333")
             ax.set_xlim(region.start, region.end)
             ax.set_ylim(0, 1.15)
             ax.set_yticks([])
@@ -510,8 +510,8 @@ class GenomeView:
             ax.set_ylim(0, max(float(top), 1e-9))
             ax.set_yticks([])
             if len(samples) > 1:
-                ax.legend(fontsize=_fs(6), frameon=False, ncol=len(samples), loc="upper right")
-            ax.set_ylabel(label, fontsize=_fs(8))
+                ax.legend(fontsize=_fs(9), frameon=False, ncol=len(samples), loc="upper right")
+            ax.set_ylabel(label, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=weight, kind="coverage_overlay", draw=_draw))
         return self
@@ -526,7 +526,7 @@ class GenomeView:
         keep_duplicates: bool = False,
         keep_secondary: bool = False,
         paint_base_letters: bool = True,
-        base_fontsize: float = 7.5,
+        base_fontsize: float = 11.0,
         color_by: str = "strand",
         colormap: str = "viridis",
         link_mates: bool = False,
@@ -685,7 +685,7 @@ class GenomeView:
             ax.set_yticks([])
             ax.set_xticks([])
             if label:
-                ax.set_ylabel(label, fontsize=_fs(8))
+                ax.set_ylabel(label, fontsize=_fs(11))
 
         self.tracks.append(Track(weight=weight, kind="spacer", draw=_draw))
         return self
@@ -762,7 +762,7 @@ class GenomeView:
         fmt = mticker.FuncFormatter(lambda x, p: f"{int(x + 1):,}")
         bottom.xaxis.set_major_formatter(fmt)
         bottom.set_xlabel(
-            f"{region.chrom} position (1-based)", fontsize=_fs(9)
+            f"{region.chrom} position (1-based)", fontsize=_fs(12)
         )
 
         fig.align_ylabels(axes)
@@ -778,12 +778,12 @@ class GenomeView:
                 loc="upper left",
                 bbox_to_anchor=(1.01, 1.0),
                 frameon=False,
-                fontsize=_fs(7),
+                fontsize=_fs(9.5),
                 title="alignments",
-                title_fontsize=_fs(7),
+                title_fontsize=_fs(9.5),
             )
         if self._title:
-            fig.suptitle(self._title, fontsize=_fs(12))
+            fig.suptitle(self._title, fontsize=_fs(16))
             fig.subplots_adjust(top=0.93)
         return fig
 
@@ -827,7 +827,7 @@ def insert_size_histogram(
         ax.hist(sizes, bins=bins, color=color, edgecolor="white")
         med = float(np.median(sizes))
         ax.axvline(med, color="#c0392b", ls="--", lw=1.4, label=f"median {med:.0f} bp")
-        ax.legend(fontsize=_fs(8), frameon=False)
+        ax.legend(fontsize=_fs(11), frameon=False)
     ax.set_xlabel("insert size (bp)")
     ax.set_ylabel("fragments")
     ax.set_title(f"Insert-length distribution {region.chrom}")

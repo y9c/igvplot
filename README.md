@@ -56,15 +56,9 @@ Scale bar + contact heatmap + TAD boundaries + genes + coverage + reads —
 ## Variant-centric + allele fraction
 
 One centred plot per variant, with the **variant allele fraction** in the title
-and reads sorted by the variant base.
+and the base change called out at the site (plus any base modifications).
 
 ![variant VAF](examples/gallery_variants.png)
-
-## Insert-size distribution
-
-Paired-end TLEN histogram (`--insert-length`).
-
-![insert-size](examples/gallery_insert.png)
 
 ---
 

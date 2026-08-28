@@ -402,10 +402,10 @@ def draw_read_track(
     reads: List[Read],
     region: Region,
     paint_base_letters: bool = True,
-    base_fontsize: float = 8.0,
+    base_fontsize: float = 11.0,
     strand_colors: Optional[Dict[str, str]] = None,
     base_colors: Optional[Dict[str, str]] = None,
-    body_alpha: float = 0.9,
+    body_alpha: float = 1.0,
     color_by: str = "strand",
     colormap: str = "viridis",
     link_mates: bool = False,
@@ -445,7 +445,9 @@ def draw_read_track(
     squished = display_mode == "squished"
     full = display_mode == "full"
     show_letters = paint_base_letters and not squished
-    row_half = 0.42 if not squished else 0.22
+    # Opaque reads that fill their row: no translucent seams, no white gaps
+    # between rows, so the pile reads as smooth IGV-style bands.
+    row_half = 0.5 if not squished else 0.22
     body_alpha = 0.5 if squished else body_alpha
 
     group_keys = [_read_group_key(r, group_by) for r in reads] if group_by != "none" else None
@@ -672,7 +674,7 @@ def draw_read_track(
         ax.set_ylim(-0.5, 0.5)
 
     ax.set_yticks([])
-    ax.set_ylabel(f"{n_used} reads", fontsize=_fs(8))
+    ax.set_ylabel(f"{n_used} reads", fontsize=_fs(11))
     return n_used
 
 
@@ -723,7 +725,7 @@ def draw_coverage_track(
         )
 
     ax.set_yticks([])
-    ax.set_ylabel(ylabel, fontsize=_fs(8))
+    ax.set_ylabel(ylabel, fontsize=_fs(11))
     return float(depths.max()) if n else 0.0
 
 
@@ -732,7 +734,7 @@ def draw_sequence_track(
     seq: str,
     region: Region,
     base_colors: Optional[Dict[str, str]] = None,
-    base_fontsize: float = 8.0,
+    base_fontsize: float = 11.0,
     min_px_per_char: float = 7.5,
 ) -> None:
     """Draw the reference nucleotide sequence on its own thin row.
@@ -755,7 +757,7 @@ def draw_sequence_track(
         ax.set_xlim(region.start, region.end)
         ax.set_ylim(-0.4, 0.4)
         ax.set_yticks([])
-        ax.set_ylabel("ref", fontsize=_fs(8))
+        ax.set_ylabel("ref", fontsize=_fs(11))
         return
     for i, base in enumerate(seq.upper()):
         if base not in base_colors:
@@ -776,7 +778,7 @@ def draw_sequence_track(
     ax.set_xlim(region.start, region.end)
     ax.set_ylim(-0.6, 0.6)
     ax.set_yticks([])
-    ax.set_ylabel("ref", fontsize=_fs(8))
+    ax.set_ylabel("ref", fontsize=_fs(11))
 
 
 def draw_sashimi_track(
@@ -786,7 +788,7 @@ def draw_sashimi_track(
     arc_color: str = SASHIMI,
     min_counts: int = 1,
     max_height: float = 1.0,
-    label_fontsize: float = 7,
+    label_fontsize: float = 9.5,
     thickness: Tuple[float, float] = (1.0, 4.0),
     jitter: float = 0.04,
 ) -> float:
@@ -862,7 +864,7 @@ def draw_sashimi_track(
 
     ax.set_ylim(-0.03, max_height * 1.12)
     ax.set_yticks([])
-    ax.set_ylabel("junction", fontsize=_fs(8))
+    ax.set_ylabel("junction", fontsize=_fs(11))
     return max_height
 
 
@@ -870,7 +872,7 @@ def draw_base_mod_track(
     ax,
     mods: Dict[int, tuple],
     region: Region,
-    label_fontsize: float = 7,
+    label_fontsize: float = 9.5,
     marker_size: float = 60,
 ) -> None:
     """Draw a strand-aware base-modification track.
@@ -903,7 +905,7 @@ def draw_base_mod_track(
     ax.set_xlim(region.start, region.end)
     ax.set_ylim(-0.5, 1.0)
     ax.set_yticks([])
-    ax.set_ylabel("bases", fontsize=_fs(8))
+    ax.set_ylabel("bases", fontsize=_fs(11))
 
 
 def draw_sites(
@@ -911,7 +913,7 @@ def draw_sites(
     region,
     sites: Dict[int, str],
     color: str = SITE,
-    label_fontsize: float = 7,
+    label_fontsize: float = 9.5,
 ) -> None:
     """Draw vertical site markers across all stacked axes, with level-stacking
     of their labels so close sites do not overlap (mirrors dna_features_viewer's
