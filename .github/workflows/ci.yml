@@ -47,7 +47,7 @@ jobs:
 
       - name: Verify wheel installs and imports
         run: |
-          pip install --force-reinstall --no-deps dist/*.whl
+          pip install --force-reinstall dist/*.whl
           python -c "import igvplot; print('igvplot', igvplot.__version__)"
 
       - uses: actions/upload-artifact@v4
