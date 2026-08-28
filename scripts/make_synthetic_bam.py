@@ -20,9 +20,7 @@ from __future__ import annotations
 
 import os
 import random
-from collections import OrderedDict
 
-import numpy as np
 import pysam
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -109,10 +107,6 @@ def make_read_query(ref, start, rlen, edits=None):
     if run:
         cigar.append((0, run))
     return "".join(query_parts), cigar
-
-
-def revcomp(s):
-    return s.translate(str.maketrans("ACGTN", "TGCAN"))[::-1]
 
 
 def revcomp(s):

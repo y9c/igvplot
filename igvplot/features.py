@@ -81,7 +81,6 @@ def _load_from_path(path: str) -> GraphicRecord:
 def _load_from_gff(path: str) -> GraphicRecord:
     try:
         from BCBio import GFF
-        from Bio import SeqIO
     except ImportError as exc:  # pragma: no cover
         raise FeaturesError(
             "Reading GFF/GTF requires the 'bcbio-gff' package: "

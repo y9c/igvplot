@@ -420,3 +420,24 @@ def test_view_as_pairs_renders(tmp_path):
     )
     gv.savefig(str(out), dpi=70)
     assert out.exists() and out.stat().st_size > 0
+
+
+def test_genomeview_close_releases_reference():
+    # GenomeView.close() must release any Reference it opened
+    from igvplot import IGV
+    gv = IGV("chrTest:6,990-7,060", reference=_data("genome.fa"))
+    assert gv._reference is not None
+    gv.close()
+    assert gv._reference is None
+    gv.close()  # idempotent
+
+
+def test_add_sequence_renders_and_owns_reference(tmp_path):
+    # add_sequence must read the sequence and not leak the Reference it opens
+    from igvplot import IGV
+    out = tmp_path / "seq.png"
+    gv = IGV("chrTest:6,995-7,040")
+    gv.add_sequence(_data("genome.fa"))
+    gv.add_reads(_data("sample.bam"), reference=_data("genome.fa"), max_reads=40)
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0

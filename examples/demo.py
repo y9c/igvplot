@@ -17,7 +17,7 @@ DATA = os.path.join(REPO, "data")
 
 
 def main():
-    view = igvplot.plot_view(
+    igvplot.plot_view(
         bam_path=os.path.join(DATA, "sample.bam"),
         region="chrTest:6,930-7,200",
         features=os.path.join(DATA, "annotation.gb"),

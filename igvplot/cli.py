@@ -5,7 +5,6 @@ import argparse
 import sys
 
 from .region import Region
-from .view import plot_view
 
 
 def _parse_sites(bed_path: str) -> dict:
@@ -18,7 +17,7 @@ def _parse_sites(bed_path: str) -> dict:
                 continue
             parts = line.split("\t")
             try:
-                chrom, start, end = parts[0], int(parts[1]), int(parts[2])
+                chrom, start, _ = parts[0], int(parts[1]), int(parts[2])
             except (ValueError, IndexError):
                 continue
             label = parts[3] if len(parts) > 3 else f"{chrom}:{start}"
@@ -164,7 +163,6 @@ def _region_from_arg(region_str, window):
 
 
 def _centered(chrom, pos1, window):
-    from .region import Region
 
     return Region.centered(chrom, pos1, window)
 
@@ -180,7 +178,6 @@ def sites_from_args(args):
 
 def _common_kwargs(args, region, out_path, title=None, sites=None, sort_base_pos=None, sort_by=None):
     """Build shared plot_view kwargs for single and batch modes."""
-    from .view import plot_view
 
     return dict(
         bam_path=args.bam,

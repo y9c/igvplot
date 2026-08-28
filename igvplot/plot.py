@@ -6,16 +6,14 @@ view to auto-size axes).
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import matplotlib as mpl
-import matplotlib.cm as cm
 import matplotlib.colors as mcolors
-import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 
-from .reads import BASE_COLORS, Read, junction_counts
+from .reads import BASE_COLORS, Read
 from .region import Region
 from .theme import (
     BASE_MOD_COLORS,
@@ -123,7 +121,7 @@ def pack_reads_into_rows(
     for g in group_keys:
         if g not in labels:
             labels.append(g)
-    rank = {l: i for i, l in enumerate(labels)}
+    rank = {lab: i for i, lab in enumerate(labels)}
 
     order = sorted(
         valid,
@@ -448,7 +446,6 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
         if r.aleft <= r.aright:
             for pos, vals in mods.items():
                 if r.aleft <= pos < r.aright:
-                    strand = vals[0] if isinstance(vals, (tuple, list)) else 1
                     color = vals[2] if isinstance(vals, (tuple, list)) and len(vals) > 2 else base_mod_color(vals[1] if isinstance(vals, (tuple, list)) else str(vals))
                     return color
         return STRAND_COLORS["unknown"]
@@ -543,7 +540,7 @@ def draw_read_track(
             for g in group_keys:
                 if g not in labels:
                     labels.append(g)
-            rank = {l: i for i, l in enumerate(labels)}
+            rank = {lab: i for i, lab in enumerate(labels)}
         else:
             rank = {i: 0 for i in range(len(reads))}
         order = sorted(

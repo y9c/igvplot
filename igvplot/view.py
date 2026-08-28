@@ -7,7 +7,7 @@ exactly between tracks.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -17,7 +17,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.figure import Figure
 from dna_features_viewer import GraphicRecord
 
-from .bigwig import BigWigUnavailableError, read_bigwig_coverage
+from .bigwig import read_bigwig_coverage
 from .features import load_features
 from .plot import (
     _fs,
@@ -35,7 +35,6 @@ from .reads import (
     compute_coverage,
     fetch_reads,
     junction_counts,
-    open_reference,
 )
 from .region import Region
 from .theme import BED, COVERAGE, HIGH_BG, SASHIMI, TAD, apply_theme
@@ -61,28 +60,28 @@ def _human_bp(n: float) -> str:
 
 def _parse_bed_features(bed_path: str) -> list:
     """Parse BED3+ -> list of (chrom, start, end, name, score)."""
-    import os
 
     features = []
-    for line in open(bed_path):
-        line = line.strip()
-        if not line or line.startswith("#") or line.startswith(("track", "browser")):
-            continue
-        parts = line.split("\t")
-        if len(parts) < 3:
-            continue
-        try:
-            s, e = int(parts[1]), int(parts[2])
-        except ValueError:
-            continue
-        name = parts[3] if len(parts) > 3 else ""
-        score = None
-        if len(parts) > 4:
+    with open(bed_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith(("track", "browser")):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 3:
+                continue
             try:
-                score = float(parts[4])
+                s, e = int(parts[1]), int(parts[2])
             except ValueError:
-                score = None
-        features.append((parts[0], s, e, name, score))
+                continue
+            name = parts[3] if len(parts) > 3 else ""
+            score = None
+            if len(parts) > 4:
+                try:
+                    score = float(parts[4])
+                except ValueError:
+                    score = None
+            features.append((parts[0], s, e, name, score))
     return features
 
 
@@ -491,22 +490,20 @@ class GenomeView:
         ``samples`` is a list of ``(bam_path_or_None, color, label)``; each
         entry's coverage is drawn as an area on the same axis with a legend.
         """
-        region = self.region
 
         def _draw(ax, region):
             x = np.arange(region.start, region.end, dtype=float)
+            series, tops = [], []
             for bam_path, color, slabel in samples:
                 if bam_path is None:
                     raise ValueError("add_coverage_overlay needs a bam_path per sample")
                 depths, _ = compute_coverage(bam_path, region, reference=reference, min_mapq=min_mapq)
+                series.append((depths, color, slabel))
+                tops.append(float(depths.max()) if depths.size else 0.0)
+            top = ymax if ymax is not None else max(tops, default=1.0)
+            for depths, color, slabel in series:
                 ax.fill_between(x, depths, step="mid", color=color, alpha=0.32, lw=0, label=slabel)
                 ax.step(x, depths, where="mid", color=color, lw=1.1, zorder=3)
-            top = ymax
-            if top is None:
-                top = max(
-                    (compute_coverage(b, region, reference=reference, min_mapq=min_mapq)[0].max() for b, _, _ in samples if b),
-                    default=1.0,
-                )
             ax.set_ylim(0, max(float(top), 1e-9))
             ax.set_yticks([])
             if len(samples) > 1:
@@ -643,10 +640,11 @@ class GenomeView:
     ) -> "GenomeView":
         """Add a reference-base sequence row (requires the reference fasta)."""
         region = self.region
+        opened = not isinstance(reference, Reference)
         ref = reference if isinstance(reference, Reference) else Reference(reference)
-        if isinstance(reference, str):
-            Reference(reference)
         seq = ref.get(region.chrom, region.start, region.end)
+        if opened:
+            ref.close()
 
         def _draw(ax, region):
             draw_sequence_track(ax, seq, region=region)
@@ -793,6 +791,15 @@ class GenomeView:
         fig = self.render()
         fig.savefig(out_path, dpi=dpi or self.dpi, bbox_inches="tight", **kwargs)
         plt.close(fig)
+        self.close()
+
+    def close(self) -> None:
+        """Release any :class:`Reference` held open by this view."""
+        if self._reference is not None:
+            obj, self._reference = self._reference, None
+            close = getattr(obj, "close", None)
+            if callable(close):
+                close()
 
     def show(self) -> None:
         self.render()
