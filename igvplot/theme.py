@@ -78,6 +78,24 @@ CATEGORICAL = [
     "#7f8c8d",  # grey
 ]
 
+# Default feature-type colours for the gene/feature track (dna_features_viewer).
+# Keys are lowercased feature types.
+FEATURE_COLORS = {
+    "gene": "#5e6fa3",      # indigo slate
+    "mrna": "#2a9d8f",      # teal
+    "exon": "#e07a5f",      # terracotta / coral
+    "cds": "#3d5a80",       # deep steel blue
+    "5'utr": "#f4a261",     # warm amber
+    "3'utr": "#e9c46a",     # soft gold
+    "utr": "#f4a261",       # warm amber
+    "promoter": "#81b29a",  # sage green
+    "enhancer": "#e76f51",  # burnt orange
+    "intron": "#9aa5b1",    # cool grey
+    "repeat_region": "#b8b8b8",
+    "variation": "#e5484d", # soft red
+    "misc_feature": "#8d99ae",
+}
+
 
 def apply_theme() -> None:
     """Apply the modern matplotlib defaults used by every rendered figure.

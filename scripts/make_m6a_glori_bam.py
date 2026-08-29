@@ -79,10 +79,6 @@ def make_spliced_read(ref, start, end, strand="+"):
         (EXON2_START, EXON2_END),
         (EXON3_START, EXON3_END),
     ]
-    introns = [
-        (INTRON1_START, INTRON1_END),
-        (INTRON2_START, INTRON2_END),
-    ]
     
     # Find overlapping exons
     overlaps = []
@@ -302,7 +298,7 @@ def main():
     os.remove(temp_bam)
     pysam.index(bam_path)
 
-    print(f"[m6A GLORI] wrote:")
+    print("[m6A GLORI] wrote:")
     print(f"  {genome_fa}")
     print(f"  {annot_gb}")
     print(f"  {sites_bed}")

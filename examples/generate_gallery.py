@@ -226,18 +226,20 @@ def new_tracks():
 
 
 def epi():
-    """Per-base variant fraction, modification stoichiometry and IUPAC motifs."""
+    """Per-base m5C stoichiometry with bisulfite C→T mutations."""
+    M5C_BAM = os.path.join(REPO, "data", "m5c", "m5c_reads.bam")
+    M5C_REF = os.path.join(REPO, "data", "m5c", "m5c_genome.fa")
+    M5C_GB = os.path.join(REPO, "data", "m5c", "m5c_annotation.gb")
     gv = (
-        GenomeView(region=HERO_REGION, reference=REF, figsize=(15, 9))
-        .add_variant_fraction(BAM, reference=REF, weight=1.0)
+        GenomeView(region="chrM5C:120-380", reference=M5C_REF, figsize=(15, 9))
         .add_mod_fraction(
-            {6950: (1, "m6A", 0.75), 7060: (-1, "m5C", 0.4), 7130: (1, "m6A", 0.3)},
-            label="stoich",
+            {150: (1, "m5C", 0.90), 250: (1, "m5C", 0.75), 350: (1, "m5C", 0.60)},
+            label="m5C %",
             weight=1.0,
         )
-        .add_motifs("DRACH", label="m6A motif", weight=0.7)
-        .add_reads(BAM, reference=REF, color_by="readgroup", group_by="pairOrientation", max_reads=60)
-        .add_features(GB, min_feature_length=3)
+        .add_reads(M5C_BAM, reference=M5C_REF, color_by="strand", max_reads=80)
+        .add_features(M5C_GB, min_feature_length=3)
+        .add_sites({150: "m5C", 250: "m5C", 350: "m5C"})
     )
     save(gv, "gallery_epigenetics.png", dpi=120)
 

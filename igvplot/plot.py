@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import matplotlib as mpl
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 import matplotlib.patheffects as mpatheffects
+import numpy as np
 
 from .reads import BASE_COLORS, Read
 from .region import Region
@@ -107,8 +107,8 @@ def _gradient_area(ax, x: np.ndarray, y: np.ndarray, color: str, zorder: int = 1
     gradient image to it — a subtle, modern look versus a flat translucent
     fill.
     """
-    from matplotlib.path import Path
     from matplotlib.patches import PathPatch
+    from matplotlib.path import Path
 
     # step-mid outline: half-step before/after each value
     mid = np.concatenate([[x[0]], (x[:-1] + x[1:]) / 2.0, [x[-1]]])

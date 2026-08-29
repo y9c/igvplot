@@ -242,8 +242,8 @@ def main(argv=None) -> int:
         if not variants:
             print("igvplot: no variants parsed from input", file=sys.stderr)
             return 2
-        from .view import plot_view
         from .reads import variant_allele_fraction
+        from .view import plot_view
 
         for chrom, pos, ref, alt in variants:
             region = _centered(chrom, pos, args.window)

@@ -10,12 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from matplotlib.gridspec import GridSpec
-from matplotlib.figure import Figure
+import numpy as np
 from dna_features_viewer import GraphicRecord
+from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
 
 from .bigwig import read_bigwig_coverage
 from .features import load_features
@@ -34,8 +34,8 @@ from .plot import (
     draw_sites,
 )
 from .reads import (
-    Reference,
     Read,
+    Reference,
     compute_coverage,
     fetch_reads,
     junction_counts,
@@ -44,8 +44,8 @@ from .region import Region
 from .theme import (
     BED,
     COVERAGE,
+    FEATURE_COLORS,
     GENE_EDGE,
-    GENE_FACE,
     HIGH_BG,
     SASHIMI,
     SPINE,
@@ -367,6 +367,7 @@ class GenomeView:
         plot_kwargs: Optional[dict] = None,
         feature_types: Optional[set] = None,
         min_feature_length: int = 0,
+        feature_colors: Optional[dict] = None,
     ) -> "GenomeView":
         """Add a gene/feature track rendered by dna_features_viewer.
 
@@ -378,6 +379,12 @@ class GenomeView:
         (e.g. ``{"gene", "CDS", "mRNA", "exon"}``) — handy to hide tiny point
         variants and show a clean structural gene track. ``min_feature_length``
         drops features shorter than this many base pairs (default 0 = keep all).
+
+        ``feature_colors`` is an optional ``{feature_type: color}`` mapping to
+        override the default dna_features_viewer colors. Keys are matched
+        case-insensitively. When not given, a built-in modern palette is used
+        (gene = slate blue, mRNA = teal, exon = coral, CDS = indigo, UTR =
+        amber, promoter = sage green, etc.).
         """
         region = self.region
         if source is None:
@@ -397,6 +404,17 @@ class GenomeView:
                 f for f in feats
                 if abs(getattr(f, "end", 0) - getattr(f, "start", 0)) >= min_feature_length
             ]
+
+        # Apply custom or default feature colours
+        if feature_colors is not None:
+            colors = {str(k).lower(): v for k, v in feature_colors.items()}
+        else:
+            colors = FEATURE_COLORS
+        for f in feats:
+            ftype = str(getattr(f, "feature_type", "")).lower()
+            if ftype in colors:
+                f.color = colors[ftype]
+
         record = GraphicRecord(
             first_index=region.start,
             sequence_length=region.length,

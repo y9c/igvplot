@@ -20,7 +20,7 @@ matplotlib.use('Agg')  # Use non-interactive backend
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..'))
 
-from igvplot import plot_view
+from igvplot import plot_view  # noqa: E402
 
 DATA = os.path.join(HERE, "..", "data", "m6a")
 OUTPUT = os.path.join(DATA, "m6a_glori_visualization.png")

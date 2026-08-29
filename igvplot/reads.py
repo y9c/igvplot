@@ -9,12 +9,11 @@ direct access to read flags, CIGAR and per-base events.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from os import fspath
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pysam
-
-from os import fspath
 
 from .region import Region
 from .theme import BASE_COLORS

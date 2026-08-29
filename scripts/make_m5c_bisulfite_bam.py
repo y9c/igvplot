@@ -68,7 +68,6 @@ def make_spliced_read(ref, start, end, strand="+"):
     
     # Determine which exons this read overlaps
     in_exon1 = start < EXON1_END and end > EXON1_START
-    in_exon2 = start < EXON2_END and end > EXON2_START
     spans_intron = start < INTRON_START and end > INTRON_END
     
     if spans_intron:
@@ -242,22 +241,26 @@ def main():
         })
     
     # Write BAM
-    with pysam.AlignmentFile(bam_path, "wb", header=header) as bam:
+    temp_bam = bam_path + ".unsorted.bam"
+    with pysam.AlignmentFile(temp_bam, "wb", header=header) as bam:
         for i, r in enumerate(reads):
             aln = pysam.AlignedSegment(bam.header)
             aln.query_name = f"read_{i:05d}"
             aln.query_sequence = r["query"]
             aln.is_reverse = (r["strand"] == "-")
             aln.mapping_quality = 60
+            aln.reference_id = 0  # Set reference ID to the first (and only) chromosome
             aln.reference_start = r["ref_start"]
             aln.cigar = r["cigar"]
             aln.query_qualities = pysam.qualitystring_to_array("I" * len(r["query"]))
             bam.write(aln)
     
-    pysam.sort("-o", bam_path, bam_path)
+    # Sort and index
+    pysam.sort("-o", bam_path, temp_bam)
+    os.remove(temp_bam)
     pysam.index(bam_path)
 
-    print(f"[m5C bisulfite] wrote:")
+    print("[m5C bisulfite] wrote:")
     print(f"  {genome_fa}")
     print(f"  {annot_gb}")
     print(f"  {sites_bed}")

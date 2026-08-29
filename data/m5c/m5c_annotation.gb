@@ -1,0 +1,38 @@
+LOCUS       chrM5C                  1000 bp    RNA              UNK 01-JAN-1980
+DEFINITION  m5C bisulfite RNA transcript.
+ACCESSION   chrM5C
+VERSION     chrM5C
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     gene            101..900
+                     /label="gene1"
+     exon            101..400
+                     /label="exon1"
+     exon            601..900
+                     /label="exon2"
+     CDS             101..400
+                     /label="CDS"
+     CDS             601..900
+                     /label="CDS"
+ORIGIN
+        1 agatgaatgg accggccata taagtaaacc agttgtaggt cgattttgac atgcggtatt
+       61 gacagagcta gtctccttta actcagggtt aaagaatata taggtagtga ctacgcaatg
+      121 cgtgcgactt actagttgta cgcgagcgag ccggtaacca cgcagagcct ttagtgtcca
+      181 tgaagtgtgg ctgcctattg ctgagaggat atgatgctgt gctggacaat tctatcggca
+      241 tgagtcaggc cgtaatccag ccgttcgaat gcatttaatt gctccccacc ataatgaact
+      301 gcgaggcagc tctcttctat agctacatga tgggctaaag actctctcac cgaaccttct
+      361 aacatacagt ccctgcaagg tgcaaaacgc cagtggctag ggagagatcg tactaccgtt
+      421 gctagaccgc acagaagagg cgtagaaggg tcaaaattgc ctatccatca cgtctgaaat
+      481 gacgggacgg ctctatacca catcttgaca tagacacaat ttgcttaaac ccggtggtca
+      541 acatctaggt gggccagaat gtcaactcat ctggtggtcc aacgaccctc cctatcggtc
+      601 atttgattag ttaaagggct gcacctctta gcgggagcaa cattttaccg cgttatagta
+      661 cgaagccaat tttataagtt gggagcaatt gacgggcgtg catccgctcg ccttgtttgt
+      721 gattagtcca cttgcgccta tagtccgccg ccctgccgca gctaccgcga acagcacttc
+      781 aacatccgct cgtatgttcc ccgtccccct aagcattcct aggggcccca atgtactgat
+      841 gatacggctt cattggacgg gaaaggtttc cccgctcctg tcggttactc ccgtgatgta
+      901 cagcgctccc ccgttattgg cactgagctg ttaaccttca tagcccaaat tgcgtcccac
+      961 ggtgctgccc agcgataaga tgaccgtctg cggtgtggct
+//

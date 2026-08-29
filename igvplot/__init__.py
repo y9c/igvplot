@@ -28,7 +28,14 @@ Track adders include reads (overlay), coverage (strand/overlay), sashimi
 signal, interaction arcs, Hi-C/TAD/BED/scale and fully custom tracks
 (``add_track``). ``igvplot.summary`` returns region QC stats.
 """
-from .region import Region
+from . import plot
+from .bigwig import (
+    BigWigUnavailableError,
+    coverage_from_bedgraph,
+    read_bigwig_coverage,
+)
+from .features import load_features
+from .plot import build_legend_items, set_font_size
 from .reads import (
     BASE_COLORS,
     Read,
@@ -40,22 +47,15 @@ from .reads import (
     open_reference,
     variant_allele_fraction,
 )
-from .features import load_features
-from .plot import build_legend_items, set_font_size
-from .theme import apply_theme
-from .bigwig import (
-    BigWigUnavailableError,
-    coverage_from_bedgraph,
-    read_bigwig_coverage,
-)
+from .region import Region
+from .theme import FEATURE_COLORS, apply_theme
 from .view import (
+    IGV,
     AlignmentView,
     GenomeView,
-    IGV,
     plot_view,
     summary,
 )
-from . import plot
 
 __version__ = "0.0.1"
 
@@ -78,6 +78,7 @@ __all__ = [
     "build_legend_items",
     "set_font_size",
     "apply_theme",
+    "FEATURE_COLORS",
     "open_reference",
     "read_bigwig_coverage",
     "coverage_from_bedgraph",
