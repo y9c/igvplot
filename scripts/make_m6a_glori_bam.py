@@ -283,19 +283,23 @@ def main():
             })
     
     # Write BAM
-    with pysam.AlignmentFile(bam_path, "wb", header=header) as bam:
+    temp_bam = bam_path + ".unsorted.bam"
+    with pysam.AlignmentFile(temp_bam, "wb", header=header) as bam:
         for i, r in enumerate(reads):
             aln = pysam.AlignedSegment(bam.header)
             aln.query_name = f"read_{i:05d}"
             aln.query_sequence = r["query"]
             aln.is_reverse = (r["strand"] == "-")
             aln.mapping_quality = 60
+            aln.reference_id = 0  # Set reference ID to the first (and only) chromosome
             aln.reference_start = r["ref_start"]
             aln.cigar = r["cigar"]
             aln.query_qualities = pysam.qualitystring_to_array("I" * len(r["query"]))
             bam.write(aln)
     
-    pysam.sort("-o", bam_path, bam_path)
+    # Sort and index
+    pysam.sort("-o", bam_path, temp_bam)
+    os.remove(temp_bam)
     pysam.index(bam_path)
 
     print(f"[m6A GLORI] wrote:")
@@ -304,10 +308,10 @@ def main():
     print(f"  {sites_bed}")
     print(f"  {bam_path}")
     print(f"[m6A GLORI] contig={CONTIG} length={LENGTH} reads={len(reads)}")
-    print(f"[m6A GLORI] gene strand: NEGATIVE (-)")
+    print("[m6A GLORI] gene strand: NEGATIVE (-)")
     print(f"[m6A GLORI] m6A sites (A→G): {M6A_SITES}")
     print(f"[m6A GLORI] exons: {EXON1_START}-{EXON1_END}, {EXON2_START}-{EXON2_END}, {EXON3_START}-{EXON3_END}")
-    print(f"[m6A GLORI] reads from both +/- strands")
+    print("[m6A GLORI] reads from both +/- strands")
 
 
 if __name__ == "__main__":

@@ -128,13 +128,19 @@ def color_mapq():
 
 
 def basemod():
-    """Strand-aware base-modification track (m6A/m5C markers) over clean reads."""
+    """Strand-aware base-modification track with GLORI-style A→G mutations at m6A sites."""
+    # Use the m6A GLORI synthetic data that has actual A→G mutations
+    M6A_BAM = os.path.join(REPO, "data", "m6a", "m6a_reads.bam")
+    M6A_REF = os.path.join(REPO, "data", "m6a", "m6a_genome.fa")
+    M6A_GB = os.path.join(REPO, "data", "m6a", "m6a_annotation.gb")
+    
+    # Zoom in on region with m6A sites
     view = (
-        GenomeView(region=HERO_REGION, reference=REF, figsize=(13, 7))
-        .add_base_mods({7000: (1, "m6A"), 7010: (-1, "m5C"), 7021: (1, "m6A")})
-        .add_reads(BAM, reference=REF, color_by="strand", max_reads=120)
-        .add_features(GB, min_feature_length=3)
-        .add_sites({7000: "C>T", 7010: "A>G", 7020: "Δ3bp", 7030: "+CC"})
+        GenomeView(region="chrM6A:230-280", reference=M6A_REF, figsize=(13, 7))
+        .add_base_mods({250: (1, "m6A"), 350: (1, "m6A"), 450: (1, "m6A")})
+        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", max_reads=120)
+        .add_features(M6A_GB, min_feature_length=3)
+        .add_sites({250: "m6A", 350: "m6A", 450: "m6A"})
     )
     save(view, "gallery_basemod.png", dpi=120)
 
