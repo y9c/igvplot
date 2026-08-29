@@ -134,17 +134,24 @@ def basemod():
     M6A_REF = os.path.join(REPO, "data", "m6a", "m6a_genome.fa")
     M6A_GB = os.path.join(REPO, "data", "m6a", "m6a_annotation.gb")
     
-    # Show region with both forward (A→G) and reverse (T→C) gene m6A sites
+    # Show region with both forward (200-720) and reverse (750-1100) genes
+    # GLORI: A→G = unmodified, A = m6A protected (negative method)
     view = (
-        GenomeView(region="chrM6A:200-720", reference=M6A_REF, figsize=(14, 8))
+        GenomeView(region="chrM6A:150-1150", reference=M6A_REF, figsize=(16, 9))
         .add_base_mods({
-            250: (1, "m6A"), 350: (1, "m6A"), 550: (1, "m6A"), 650: (1, "m6A"),  # forward gene
+            # Forward gene m6A sites (A stays as A = m6A protected)
+            250: (1, "m6A"), 350: (1, "m6A"), 550: (1, "m6A"), 650: (1, "m6A"),
+            # Reverse gene m6A sites (T stays as T = m6A protected on complement)
+            800: (-1, "m6A"), 850: (-1, "m6A"), 1020: (-1, "m6A"), 1070: (-1, "m6A"),
         })
-        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
-                   max_reads=40, show_all_bases=False, base_fontsize=7.0, weight=5.0,
+        .add_reads(M6A_BAM, reference=M6A_REF, color_by="basemod", group_by="strand",
+                   max_reads=60, show_all_bases=False, base_fontsize=7.0, weight=5.0,
                    link_mates=True, view_as_pairs=True)
         .add_features(M6A_GB, min_feature_length=3)
-        .add_sites({250: "m6A", 350: "m6A", 550: "m6A", 650: "m6A"})
+        .add_sites({
+            250: "m6A", 350: "m6A", 550: "m6A", 650: "m6A",  # forward gene
+            800: "m6A", 850: "m6A", 1020: "m6A", 1070: "m6A",  # reverse gene
+        })
     )
     save(view, "gallery_basemod.png", dpi=120)
 

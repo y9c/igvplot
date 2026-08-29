@@ -109,31 +109,51 @@ def make_spliced_read(ref, start, end, exons):
     return query, cigar, ref_start
 
 
-def apply_glori_conversion_forward(query, ref_positions, m6a_set, mutation_rate=0.85):
-    """Apply GLORI conversion for forward strand: A→G at m6A positions."""
+def apply_glori_conversion_forward(query, ref_positions, m6a_set, conversion_rate=0.85):
+    """Apply GLORI conversion for forward strand.
+    
+    GLORI is a negative method:
+    - Unmodified A → G (reagent converted it)
+    - m6A-protected A → stays A (methylation blocked conversion)
+    """
     result = []
     for i, base in enumerate(query):
         if base == "A" and i < len(ref_positions):
             ref_pos = ref_positions[i]
-            if ref_pos in m6a_set and rng.random() < mutation_rate:
-                result.append("G")  # GLORI mutation at m6A
+            if ref_pos in m6a_set:
+                # m6A site - protected, stays as A
+                result.append("A")
             else:
-                result.append("A")  # unchanged
+                # Unmodified A - convert to G with conversion_rate probability
+                if rng.random() < conversion_rate:
+                    result.append("G")
+                else:
+                    result.append("A")
         else:
             result.append(base)
     return "".join(result)
 
 
-def apply_glori_conversion_reverse(query, ref_positions, m6a_set, mutation_rate=0.85):
-    """Apply GLORI conversion for reverse strand: T→C at m6A positions."""
+def apply_glori_conversion_reverse(query, ref_positions, m6a_set, conversion_rate=0.85):
+    """Apply GLORI conversion for reverse strand.
+    
+    GLORI is a negative method:
+    - Unmodified T → C (reagent converted the complement A)
+    - m6A-protected T → stays T (methylation on forward strand blocked conversion)
+    """
     result = []
     for i, base in enumerate(query):
         if base == "T" and i < len(ref_positions):
             ref_pos = ref_positions[i]
-            if ref_pos in m6a_set and rng.random() < mutation_rate:
-                result.append("C")  # GLORI mutation at m6A (T→C on reverse)
+            if ref_pos in m6a_set:
+                # m6A site - protected, stays as T
+                result.append("T")
             else:
-                result.append("T")  # unchanged
+                # Unmodified T (complement of A) - convert to C
+                if rng.random() < conversion_rate:
+                    result.append("C")
+                else:
+                    result.append("T")
         else:
             result.append(base)
     return "".join(result)
