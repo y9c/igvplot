@@ -42,6 +42,11 @@ First public release.
 - Epitranscriptomics tracks: `.add_variant_fraction` (per-base VAF),
   `.add_mod_fraction` (per-site modification stoichiometry),
   `.add_motifs` (IUPAC motif scan, e.g. `DRACH`).
+- Synthetic data generators for RNA modification sequencing:
+  `make_m6a_glori_bam.py` (GLORI A→G mutations with spliced reads on reverse
+  strand) and `make_m5c_bisulfite_bam.py` (bisulfite C→T mutations), both with
+  bidirectional reads and multi-exon gene structures; `visualize_m6a_glori.py`
+  demonstrates m6A site highlighting.
 - `igvplot.summary(bam, region, reference)` → region QC statistics.
 - `python -m igvplot`, `--version`/`-V`, and CLI flags `--coverage-strand`,
   `--variants`, `--gc`; `docs/api.md` + `Makefile` + `.editorconfig`.
