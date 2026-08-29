@@ -144,9 +144,10 @@ def basemod():
             # Reverse gene m6A sites (T stays as T = m6A protected on complement)
             800: (-1, "m6A"), 850: (-1, "m6A"), 1020: (-1, "m6A"), 1070: (-1, "m6A"),
         })
-        .add_reads(M6A_BAM, reference=M6A_REF, color_by="basemod", group_by="strand",
-                   max_reads=60, show_all_bases=False, base_fontsize=7.0, weight=5.0,
-                   link_mates=True, view_as_pairs=True)
+        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
+                   max_reads=150, show_all_bases=False, base_fontsize=6.5, weight=5.0,
+                   link_mates=True, view_as_pairs=True,
+                   mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})  # Red for GLORI mutations
         .add_features(M6A_GB, min_feature_length=3)
         .add_sites({
             250: "m6A", 350: "m6A", 550: "m6A", 650: "m6A",  # forward gene

@@ -1278,6 +1278,7 @@ class GenomeView:
         sort_base_pos: Optional[int] = None,
         tag_keys: Optional[List[str]] = None,
         weight: float = 3.5,
+        mismatch_colors: Optional[Dict[str, str]] = None,
     ) -> "GenomeView":
         """Add an IGV-style aligned-reads pileup track.
 
@@ -1340,6 +1341,8 @@ class GenomeView:
                 show_deletion_text=show_deletion_text,
                 basemod_sites=basemod_sites or self._base_mods,
                 sort_base_pos=sort_base_pos,
+                mismatch_colors=mismatch_colors,
+                reference=reference or self._reference,
             )
 
         self.tracks.append(Track(weight=weight, kind="reads", draw=_draw))

@@ -44,7 +44,7 @@ Each returns `self` for chaining; call order = top-to-bottom stack order.
 ### Alignment
 | Method | Notes |
 | --- | --- |
-| `add_reads(bam_path=None, reads=None, reference=None, min_mapq=0, max_reads=None, keep_duplicates=False, keep_secondary=False, paint_base_letters=True, base_fontsize=11.0, color_by="strand", colormap="viridis", link_mates=False, group_by="none", show_soft_clips=False, display_mode="expanded", view_as_pairs=False, highlight=None, sampling_window=0, max_per_window=0, show_all_bases=None, sort_by="start", show_insertion_text=False, show_deletion_text=False, basemod_sites=None, sort_base_pos=None, weight=3.5)` | stacked read pileup |
+| `add_reads(bam_path=None, reads=None, reference=None, min_mapq=0, max_reads=None, keep_duplicates=False, keep_secondary=False, paint_base_letters=True, base_fontsize=11.0, color_by="strand", colormap="viridis", link_mates=False, group_by="none", show_soft_clips=False, display_mode="expanded", view_as_pairs=False, highlight=None, sampling_window=0, max_per_window=0, show_all_bases=None, sort_by="start", show_insertion_text=False, show_deletion_text=False, basemod_sites=None, sort_base_pos=None, mismatch_colors=None, weight=3.5)` | stacked read pileup. `mismatch_colors` colours mismatch letters by substitution type (`"A>G"`) or alternate letter, resolved against `reference` when available |
 | `add_reads_overlay(samples, reference=None, min_mapq=0, max_reads=None, weight=3.0, label="reads", paint_base_letters=True)` | `samples=[(bam,color,label),...]`, per-sample colour |
 | `bam(bam_path, reference=None, coverage=True, reads=True, **read_kwargs)` | convenience: coverage + reads |
 

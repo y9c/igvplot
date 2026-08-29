@@ -568,6 +568,35 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
     return lambda i, r: dispatch[color_by](r)
 
 
+def _mismatch_letter_color(
+    chrom: str,
+    pos: int,
+    base: str,
+    base_colors: Dict[str, str],
+    reference=None,
+    mismatch_colors: Optional[Dict[str, str]] = None,
+) -> str:
+    """Resolve the colour for a mismatch letter.
+
+    ``base_colors`` maps the alternate letter (A/C/G/T) to a colour.
+    ``mismatch_colors`` can additionally override by substitution type
+    (``"REF>ALT"``, e.g. ``{"A>G": "#e63946"}``) or by plain alternate letter
+    (``{"G": "#e63946"}``); the substitution form is resolved against the
+    reference when it is available, otherwise it degrades to the alternate
+    letter colour.
+    """
+    if mismatch_colors:
+        key = base
+        if reference is not None and getattr(reference, "available", False):
+            ref_base = reference.base(chrom, pos)
+            s_key = f"{ref_base}>{base}" if ref_base is not None else None
+            if s_key is not None and s_key in mismatch_colors:
+                return mismatch_colors[s_key]
+        if key in mismatch_colors:
+            return mismatch_colors[key]
+    return base_colors.get(base, "#333333")
+
+
 def draw_read_track(
     ax,
     reads: List[Read],
@@ -576,6 +605,7 @@ def draw_read_track(
     base_fontsize: float = 11.0,
     strand_colors: Optional[Dict[str, str]] = None,
     base_colors: Optional[Dict[str, str]] = None,
+    mismatch_colors: Optional[Dict[str, str]] = None,
     body_alpha: float = 1.0,
     color_by: str = "strand",
     colormap: str = "viridis",
@@ -597,6 +627,7 @@ def draw_read_track(
     basemod_sites: Optional[Dict[int, tuple]] = None,
     sort_base_pos: Optional[int] = None,
     color_fn: Optional = None,
+    reference: Optional = None,
 ) -> int:
     """Draw a stacked pile of aligned reads (IGV-style).
 
@@ -785,7 +816,9 @@ def draw_read_track(
                     base = r.bases[p]
                     is_mismatch = p in r.mismatches
                     if is_mismatch:
-                        letter_color = base_colors.get(base, "#333333")
+                        letter_color = _mismatch_letter_color(
+                            region.chrom, p, base, base_colors, reference, mismatch_colors
+                        )
                         weight = "bold"
                     else:
                         # matching bases recede so mismatches pop
@@ -814,7 +847,9 @@ def draw_read_track(
                         ha="center",
                         va="center",
                         fontsize=_fs(base_fontsize),
-                        color=base_colors.get(base, "#333333"),
+                        color=_mismatch_letter_color(
+                            region.chrom, pos, base, base_colors, reference, mismatch_colors
+                        ),
                         weight="bold",
                         zorder=6,
                     )

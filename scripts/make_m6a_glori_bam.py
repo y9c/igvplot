@@ -39,7 +39,7 @@ SEED = 456
 
 READ_LEN = 120
 INSERT_SIZE = 250
-COVERAGE = 30
+COVERAGE = 100  # Increased from 30 to show more reads
 
 rng = random.Random(SEED)
 
@@ -366,7 +366,7 @@ def main():
     os.remove(temp_bam)
     pysam.index(bam_path)
 
-    print(f"[m6A GLORI] wrote:")
+    print("[m6A GLORI] wrote:")
     print(f"  {genome_fa}")
     print(f"  {annot_gb}")
     print(f"  {sites_bed}")

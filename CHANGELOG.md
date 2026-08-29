@@ -23,6 +23,10 @@ First public release.
   now clamped to the feature stack and the bar scaled to fill it.
 
 ### Added
+- `mismatch_colors` for `.add_reads`: colour mismatch letters by substitution
+  type (`{"A>G": "#e63946"}`) or plain alternate letter (`{"G": "#e63946"}`),
+  resolved against the reference when available — used to highlight GLORI
+  m6A signals (unmodified A→G / reverse-strand T→C) in the basemod gallery.
 - Single-cell / long-read colouring: `color_by="tag:CB"` / `group_by="tag:UB"`
   — categorical read colouring and clustering by any auxiliary BAM tag
   (simple scalar tags auto-collected, or pass `tag_keys` explicitly).
