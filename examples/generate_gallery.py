@@ -136,9 +136,10 @@ def basemod():
     
     # Zoom in on region with m6A sites
     view = (
-        GenomeView(region="chrM6A:230-280", reference=M6A_REF, figsize=(13, 7))
+        GenomeView(region="chrM6A:230-280", reference=M6A_REF, figsize=(13, 8))
         .add_base_mods({250: (1, "m6A"), 350: (1, "m6A"), 450: (1, "m6A")})
-        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", max_reads=120)
+        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", max_reads=50,
+                   show_all_bases=False, base_fontsize=8.0, weight=4.5)
         .add_features(M6A_GB, min_feature_length=3)
         .add_sites({250: "m6A", 350: "m6A", 450: "m6A"})
     )
