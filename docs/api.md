@@ -44,7 +44,7 @@ Each returns `self` for chaining; call order = top-to-bottom stack order.
 ### Alignment
 | Method | Notes |
 | --- | --- |
-| `add_reads(bam_path=None, reads=None, reference=None, min_mapq=0, max_reads=None, keep_duplicates=False, keep_secondary=False, paint_base_letters=True, base_fontsize=11.0, color_by="strand", colormap="viridis", link_mates=False, group_by="none", show_soft_clips=False, display_mode="expanded", view_as_pairs=False, highlight=None, sampling_window=0, max_per_window=0, show_all_bases=None, sort_by="start", show_insertion_text=False, show_deletion_text=False, basemod_sites=None, sort_base_pos=None, mismatch_colors=None, weight=3.5)` | stacked read pileup. `mismatch_colors` colours mismatch letters by substitution type (`"A>G"`) or alternate letter, resolved against `reference` when available |
+| `add_reads(bam_path=None, reads=None, reference=None, min_mapq=0, max_reads=None, keep_duplicates=False, keep_secondary=False, paint_base_letters=True, base_fontsize=11.0, color_by="strand", colormap="viridis", link_mates=False, group_by="none", show_soft_clips=False, display_mode="expanded", view_as_pairs=False, highlight=None, sampling_window=0, max_per_window=0, show_all_bases=None, sort_by="start", show_insertion_text=False, show_deletion_text=False, basemod_sites=None, sort_base_pos=None, mismatch_colors=None, weight=3.5, sample_seed=None)` | stacked read pileup. `mismatch_colors` colours mismatch letters by substitution type (`"A>G"`) or alternate letter, resolved against `reference` when available. When `max_reads` caps the pile, reads are **randomly sampled across the region** (not the first-N) keeping paired mates together; `sample_seed` makes that reproducible. Spliced reads (CIGAR `N`) are drawn as exon blocks with a visible intron gap |
 | `add_reads_overlay(samples, reference=None, min_mapq=0, max_reads=None, weight=3.0, label="reads", paint_base_letters=True)` | `samples=[(bam,color,label),...]`, per-sample colour |
 | `bam(bam_path, reference=None, coverage=True, reads=True, **read_kwargs)` | convenience: coverage + reads |
 
@@ -75,6 +75,7 @@ Each returns `self` for chaining; call order = top-to-bottom stack order.
 | `add_signal(values, color=..., ylabel="signal", ymax=None, weight=1.0)` | numeric array, length = region.length |
 | `add_variants(source, color=...)` | mark VCF/BED variants |
 | `add_variant_fraction(bam_path, reference=None, min_mapq=0, color=..., weight=1.0, label="VAF")` | per-base allelic fraction |
+| `add_conversion_fraction(bam_path, reference=None, min_mapq=0, color=..., weight=1.0, max_reads=None, label="conversion", sample_seed=None)` | per-base conversion ratio (mismatch/depth), strand-aware — the bisulfite/GLORI readout; 0% at a protected modification site |
 | `add_mod_fraction(sites, color=..., ymax=1.0, weight=1.0, label="mod%")` | per-site stoichiometry bars |
 | `add_motifs(motif, reference=None, color=..., weight=0.7, label="motif", max_hits=500)` | IUPAC motif scan (e.g. `DRACH`) |
 | `add_arc(pairs, color=..., weight=2.0, label="interaction", max_height=1.0)` | interaction/loop arcs `(start,end[,strength])` |

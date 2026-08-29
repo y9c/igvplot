@@ -8,6 +8,7 @@ direct access to read flags, CIGAR and per-base events.
 """
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from os import fspath
 from typing import Dict, Iterable, List, Optional, Tuple, Union
@@ -383,6 +384,32 @@ def _events_for_segment(
     return read
 
 
+def _fragment_sample(reads: List[Read], max_reads: int, rng: random.Random) -> List[Read]:
+    """Randomly select ``max_reads`` reads while keeping paired mates together.
+
+    Reads are grouped by query name so a fragment (both mates, when both are
+    present) is either fully included or fully dropped — otherwise a pair can be
+    split and the "view as pairs" join would be broken. Selection is random
+    across the whole region, so reads at the far end of a wide window are not
+    silently dropped (unlike the old first-N-in-coordinate-order behaviour).
+    """
+    if len(reads) <= max_reads:
+        return reads
+    by_name: Dict[str, List[int]] = {}
+    for i, r in enumerate(reads):
+        by_name.setdefault(r.name, []).append(i)
+    # each fragment is one sampling unit; choose them at random
+    frag_idxs = list(by_name.values())
+    rng.shuffle(frag_idxs)
+    chosen: List[int] = []
+    for idxs in frag_idxs:
+        chosen.extend(idxs)
+        if len(chosen) >= max_reads:
+            break
+    keep = sorted(chosen)
+    return [reads[i] for i in keep]
+
+
 def fetch_reads(
     bam_path: str,
     region: Union[Region, str, tuple],
@@ -395,6 +422,7 @@ def fetch_reads(
     max_per_window: int = 0,
     collect_bases: bool = False,
     tag_keys: Optional[Iterable[str]] = None,
+    sample_seed: Optional[int] = None,
 ) -> List[Read]:
     """Fetch reads overlapping ``region`` from a sorted, indexed BAM/CRAM.
 
@@ -410,7 +438,11 @@ def fetch_reads(
     min_mapq:
         Drop reads with mapping quality strictly below this threshold.
     max_reads:
-        Stop after collecting this many reads.
+        Cap the number of reads returned. When the region holds more reads than
+        this, they are **randomly sampled across the whole region** (not the
+        first ``max_reads`` in coordinate order) and **paired mates are kept
+        together**, so both the start and end of a wide window are represented
+        and no paired fragment is split. Deterministic when ``sample_seed`` is set.
     keep_duplicates / keep_secondary:
         By default PCR/optical duplicates and secondary/supplementary
         alignments are skipped (standard IGV behaviour).
@@ -419,6 +451,9 @@ def fetch_reads(
         sampling_window`` and keep at most ``max_per_window`` reads per bucket
         (in coordinate order). Useful to bound memory/plot size for very deep
         or very large files.
+    sample_seed:
+        Seed for the random ``max_reads`` sampling so results are reproducible
+        (None = non-deterministic random sampling).
     collect_bases:
         Also store the query base at every aligned reference position on each
         read (used by the base-resolution "show all bases" view). Set this only
@@ -474,11 +509,12 @@ def fetch_reads(
                 )
                 if read is not None:
                     reads.append(read)
-                if max_reads is not None and len(reads) >= max_reads:
-                    break
     finally:
         if close_ref:
             ref.close()
+    if max_reads is not None and len(reads) > max_reads:
+        rng = random.Random(sample_seed)
+        reads = _fragment_sample(reads, max_reads, rng)
     return reads
 
 

@@ -154,10 +154,10 @@ def basemod():
             figsize=(17, 9),
             title="m6A GLORI — A→G / T→C conversion (negative method)",
         )
-        .add_variant_fraction(M6A_BAM, reference=M6A_REF, label="A→G / T→C conversion")
+        .add_conversion_fraction(M6A_BAM, reference=M6A_REF, label="A→G / T→C conversion")
         .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
                    max_reads=120, show_all_bases=False, base_fontsize=7.5, weight=6.5,
-                   link_mates=True, view_as_pairs=True,
+                   link_mates=True, view_as_pairs=True, sample_seed=7,
                    mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})  # red = converted
         .add_features(M6A_GB, min_feature_length=3)
         .add_sequence(M6A_REF)
@@ -167,27 +167,27 @@ def basemod():
 
 
 def basemod_zoom():
-    """Base-resolution zoom at the forward-gene m6A sites.
+    """Base-resolution zoom spanning the forward-gene intron.
 
     Every read base is drawn, so the A→G conversions (red) are readable
-    letter-by-letter while the m6A sites (chrM6A:250, 350) keep their A and are
-    left grey — the protected signal. A colour-coded reference row lines the
-    bottom.
+    letter-by-letter while the m6A sites (chrM6A:350, 550) keep their A and are
+    left grey — the protected signal. Reads that span the intron (CIGAR ``N``)
+    are drawn as separate exon blocks so the splice junction is visible.
     """
     view = (
         GenomeView(
-            region="chrM6A:235-365",
+            region="chrM6A:350-550",
             reference=M6A_REF,
             figsize=(15, 6),
-            title="Zoom — A→G conversions around m6A sites chrM6A:250 & 350",
+            title="Zoom — A→G conversions & splice junction (chrM6A:350-550)",
         )
         .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
-                   max_reads=45, show_all_bases=True, base_fontsize=8.5, weight=5.5,
-                   link_mates=True, view_as_pairs=True,
+                   max_reads=45, show_all_bases=True, base_fontsize=8.0, weight=5.5,
+                   link_mates=True, view_as_pairs=True, sample_seed=7,
                    mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})
         .add_features(M6A_GB, min_feature_length=3)
         .add_sequence(M6A_REF)
-        .add_sites({250: "m6A", 350: "m6A"})
+        .add_sites({350: "m6A", 550: "m6A"})
     )
     save(view, "gallery_basemod_zoom.png", dpi=130)
 

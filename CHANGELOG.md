@@ -23,6 +23,17 @@ First public release.
   now clamped to the feature stack and the bar scaled to fill it.
 
 ### Added
+- Random, fragment-aware read sampling: when `max_reads` caps a pile in
+  `.add_reads` / `fetch_reads`, reads are **randomly sampled across the whole
+  region** (not the first-N in coordinate order) and **paired mates are kept
+  together** (`sample_seed` makes it reproducible), so both ends of a wide
+  window are represented and no fragment is split.
+- Spliced reads: reads with CIGAR `N` (intron skips) are drawn as their exon
+  blocks with a visible intron gap (plus a thin connecting line), instead of a
+  solid bar filling the intron.
+- `add_conversion_fraction(bam, reference, ...)` — a strand-aware per-base
+  conversion-ratio track (mismatches / depth), the bisulfite / GLORI readout
+  that dips to 0% at a protected modification site.
 - `mismatch_colors` for `.add_reads`: colour mismatch letters by substitution
   type (`{"A>G": "#e63946"}`) or plain alternate letter (`{"G": "#e63946"}`),
   resolved against the reference when available — used to highlight GLORI

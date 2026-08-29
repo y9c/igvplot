@@ -29,6 +29,15 @@ def _data(fname):
     return path
 
 
+def _m6a():
+    """Return (bam, reference) for the m6A GLORI synthetic data."""
+    bam = os.path.join(DATA, "m6a", "m6a_reads.bam")
+    ref = os.path.join(DATA, "m6a", "m6a_genome.fa")
+    if not os.path.exists(bam) or not os.path.exists(ref):
+        pytest.skip("missing m6A GLORI data (run make_m6a_glori_bam.py)")
+    return bam, ref
+
+
 @pytest.fixture(autouse=True)
 def _reset_global_font():
     """Reset the global font scale after every test so state never leaks."""
@@ -101,6 +110,62 @@ def test_fetch_reads_has_both_strands():
     reads = fetch_reads(bam, Region("chrTest", 6900, 7250), reference=_data("genome.fa"))
     assert any(r.is_reverse for r in reads)
     assert any(not r.is_reverse for r in reads)
+
+
+def test_fetch_reads_max_reads_samples_across_region():
+    bam, ref = _m6a()
+    reg = Region.from_any("chrM6A:150-1150")
+    sampled = fetch_reads(bam, reg, reference=ref, max_reads=120, sample_seed=7)
+    assert 0 < len(sampled) <= 120
+    n = reg.length
+    quart = lambda x: min(3, int((x - reg.start) / (n / 4)))  # noqa: E731
+    # reads must be drawn from the whole region, not just its start
+    assert {quart(r.aleft) for r in sampled} == {0, 1, 2, 3}
+
+
+def test_fetch_reads_sample_keeps_paired_mates():
+    bam, ref = _m6a()
+    reg = Region.from_any("chrM6A:150-1150")
+    sampled = fetch_reads(bam, reg, reference=ref, max_reads=120, sample_seed=7)
+    names = {}
+    for r in sampled:
+        names.setdefault(r.name, []).append(r)
+    # fragments that kept both mates must be on opposite strands (a real pair)
+    for name, rs in names.items():
+        if len(rs) == 2:
+            assert rs[0].is_reverse != rs[1].is_reverse
+
+
+def test_fetch_reads_sample_deterministic_with_seed():
+    bam, ref = _m6a()
+    reg = Region.from_any("chrM6A:150-1150")
+    a = fetch_reads(bam, reg, reference=ref, max_reads=80, sample_seed=42)
+    b = fetch_reads(bam, reg, reference=ref, max_reads=80, sample_seed=42)
+    assert [r.name for r in a] == [r.name for r in b]
+
+
+def test_spliced_read_exon_blocks():
+    from igvplot.plot import _read_exon_blocks
+    from igvplot.reads import Read
+
+    r = Read(name="x", aleft=381, aright=501, is_reverse=False, mapq=60,
+             junctions=[(400, 500)])
+    # mirror draw_read_track's clipping, then split on the intron
+    s, e = max(350, r.aleft), min(550, r.aright)
+    assert _read_exon_blocks(r, s, e) == [(381, 400), (500, 501)]
+    # an unspliced read is a single block
+    r2 = Read(name="y", aleft=200, aright=300, is_reverse=False, mapq=60)
+    assert _read_exon_blocks(r2, 200, 300) == [(200, 300)]
+
+
+def test_conversion_fraction_track_renders(tmp_path):
+    bam, ref = _m6a()
+    view = GenomeView(region="chrM6A:150-1150", reference=ref, figsize=(12, 6))
+    view.add_conversion_fraction(bam, reference=ref, label="A→G / T→C")
+    view.add_reads(bam, reference=ref, max_reads=60, sample_seed=7)
+    out = tmp_path / "conv.png"
+    view.savefig(str(out), dpi=60)
+    assert out.stat().st_size > 0
 
 
 def test_compute_coverage_and_variant_pile():

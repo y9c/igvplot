@@ -249,6 +249,7 @@ def main():
     fwd_m6a_set = set(FWD_M6A_SITES)
     rev_m6a_set = set(REV_M6A_SITES)
     reads = []
+    frag_id = 0  # mates of one fragment share this query name (for PE join)
     
     # Generate paired-end reads for forward gene
     fwd_exons = [(FWD_EXON1_START, FWD_EXON1_END), (FWD_EXON2_START, FWD_EXON2_END)]
@@ -262,7 +263,9 @@ def main():
         query1, cigar1, ref_start1 = make_spliced_read(seq_chars, start, start + READ_LEN, fwd_exons)
         if query1 is None:
             continue
-        
+        frag_id += 1
+        name = f"frag_{frag_id:05d}"
+
         # Read 2 (reverse strand, mate)
         mate_start = start + INSERT_SIZE
         query2, cigar2, ref_start2 = make_spliced_read(seq_chars, mate_start, mate_start + READ_LEN, fwd_exons)
@@ -272,6 +275,7 @@ def main():
         query1 = apply_glori_conversion_forward(query1, ref_positions1, fwd_m6a_set)
         
         reads.append({
+            "name": name,
             "query": query1,
             "cigar": cigar1,
             "ref_start": ref_start1,
@@ -285,6 +289,7 @@ def main():
             query2 = apply_glori_conversion_reverse(query2, ref_positions2, fwd_m6a_set)
             
             reads.append({
+                "name": name,
                 "query": query2,
                 "cigar": cigar2,
                 "ref_start": ref_start2,
@@ -304,7 +309,9 @@ def main():
         query1, cigar1, ref_start1 = make_spliced_read(seq_chars, start, start + READ_LEN, rev_exons)
         if query1 is None:
             continue
-        
+        frag_id += 1
+        name = f"frag_{frag_id:05d}"
+
         # Read 2 (reverse strand, mate)
         mate_start = start + INSERT_SIZE
         query2, cigar2, ref_start2 = make_spliced_read(seq_chars, mate_start, mate_start + READ_LEN, rev_exons)
@@ -314,6 +321,7 @@ def main():
         query1 = apply_glori_conversion_reverse(query1, ref_positions1, rev_m6a_set)
         
         reads.append({
+            "name": name,
             "query": query1,
             "cigar": cigar1,
             "ref_start": ref_start1,
@@ -327,6 +335,7 @@ def main():
             query2 = apply_glori_conversion_forward(query2, ref_positions2, rev_m6a_set)
             
             reads.append({
+                "name": name,
                 "query": query2,
                 "cigar": cigar2,
                 "ref_start": ref_start2,
@@ -338,9 +347,9 @@ def main():
     # Write BAM
     temp_bam = bam_path + ".unsorted.bam"
     with pysam.AlignmentFile(temp_bam, "wb", header=header) as bam:
-        for i, r in enumerate(reads):
+        for r in reads:
             aln = pysam.AlignedSegment(bam.header)
-            aln.query_name = f"read_{i:05d}"
+            aln.query_name = r["name"]
             aln.query_sequence = r["query"]
             aln.is_reverse = (r["strand"] == "-")
             aln.is_read1 = (r["read_num"] == 1)

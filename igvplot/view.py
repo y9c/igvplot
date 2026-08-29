@@ -1182,6 +1182,57 @@ class GenomeView:
         self.tracks.append(Track(weight=weight, kind="variant_fraction", draw=_draw))
         return self
 
+    def add_conversion_fraction(
+        self,
+        bam_path: str,
+        reference: Optional[Union[str, Reference]] = None,
+        min_mapq: int = 0,
+        color: str = "#e63946",
+        weight: float = 1.0,
+        max_reads: Optional[int] = None,
+        label: str = "conversion",
+        sample_seed: Optional[int] = None,
+    ) -> "GenomeView":
+        """Draw a per-base conversion-ratio track from a BAM.
+
+        For each position the fraction of aligned reads whose base differs from
+        the reference (mismatch pile-up / depth) is drawn as a stepped area —
+        the "conversion ratio" of a bisulfite-style / GLORI experiment, where a
+        modified base is protected (0%) and unmodified bases are converted
+        (high). Computed per-read (strand-aware) so it is consistent with the
+        per-base mismatch letters drawn in the read track.
+        """
+        region = self.region
+        ref = reference or self._reference
+        reads = fetch_reads(
+            bam_path, region, reference=ref, min_mapq=min_mapq,
+            max_reads=max_reads, sample_seed=sample_seed,
+        )
+        n = region.length
+        depth = np.zeros(n, dtype=float)
+        conv = np.zeros(n, dtype=float)
+        for r in reads:
+            s = max(region.start, r.aleft)
+            e = min(region.end, r.aright)
+            depth[s - region.start : e - region.start] += 1
+            for p in r.mismatches:
+                if region.start <= p < region.end:
+                    conv[p - region.start] += 1
+        frac = np.divide(conv, depth, out=np.zeros_like(conv), where=depth > 0)
+
+        def _draw(ax, region):
+            x = np.arange(region.start, region.end, dtype=float)
+            ax.fill_between(x, frac, step="mid", color=color, alpha=0.85, lw=0, zorder=2)
+            ax.step(x, frac, where="mid", color=color, lw=1.1, zorder=3)
+            ax.set_xlim(region.start, region.end)
+            top = float(frac.max()) if frac.size else 1.0
+            ax.set_ylim(0, max(top, 1e-6) * 1.1)
+            ax.set_yticks([])
+            _tlabel(ax, label)
+
+        self.tracks.append(Track(weight=weight, kind="conversion_fraction", draw=_draw))
+        return self
+
     def add_motifs(
         self,
         motif: str,
@@ -1279,6 +1330,7 @@ class GenomeView:
         tag_keys: Optional[List[str]] = None,
         weight: float = 3.5,
         mismatch_colors: Optional[Dict[str, str]] = None,
+        sample_seed: Optional[int] = None,
     ) -> "GenomeView":
         """Add an IGV-style aligned-reads pileup track.
 
@@ -1317,6 +1369,7 @@ class GenomeView:
                 max_per_window=max_per_window,
                 collect_bases=collect_bases,
                 tag_keys=tag_keys,
+                sample_seed=sample_seed,
             )
 
         def _draw(ax, region):

@@ -271,6 +271,27 @@ def _pack_pairs_into_rows(
     return mapping
 
 
+def _read_exon_blocks(r: Read, s: int, e: int) -> List[Tuple[int, int]]:
+    """Return the aligned (exon) blocks of a read clipped to ``[s, e]``.
+
+    RNA-spliced reads carry ``junctions`` (CIGAR ``N`` ref-skips). Instead of
+    drawing one solid bar over the whole aligned span (which would fill the
+    intron), we split the read into its exon blocks so the intron gap is visible
+    and a spliced read reads as separate blocks across the junction.
+    """
+    blocks: List[Tuple[int, int]] = []
+    cur = s
+    for js, je in sorted(r.junctions):
+        js = max(js, s)
+        je = min(je, e)
+        if js > cur and js != je:
+            blocks.append((cur, js))
+        cur = max(cur, je)
+    if e > cur:
+        blocks.append((cur, e))
+    return [(a, b) for a, b in blocks if b - a >= 1]
+
+
 def _first_pair_strand_key(r: Read) -> str:
     """Return 'forward'/'reverse' for the strand of the first-of-pair mate."""
     if r.pairend_first:
@@ -728,33 +749,46 @@ def draw_read_track(
                         )
                     )
 
-        # Read body (hairline white edge keeps adjacent rows crisp).
-        ax.add_patch(
-            mpatches.Rectangle(
-                (s, row - row_half),
-                e - s,
-                2 * row_half,
-                facecolor=body_color,
-                edgecolor="white",
-                linewidth=0.25,
-                alpha=body_alpha,
-                zorder=2,
+        # Read body (hairline white edge keeps adjacent rows crisp). Spliced
+        # reads are drawn as their exon blocks, with a thin line across the
+        # intron so the junction is visible (IGV style).
+        blocks = _read_exon_blocks(r, s, e)
+        for bs, be in blocks:
+            ax.add_patch(
+                mpatches.Rectangle(
+                    (bs, row - row_half),
+                    be - bs,
+                    2 * row_half,
+                    facecolor=body_color,
+                    edgecolor="white",
+                    linewidth=0.25,
+                    alpha=body_alpha,
+                    zorder=2,
+                )
             )
-        )
+        # thin connector across each intron so a spliced read stays one unit
+        if len(blocks) > 1:
+            for (bs, be), (ns, ne) in zip(blocks, blocks[1:]):
+                ax.plot(
+                    [be, ns], [row, row],
+                    color=body_color, lw=0.9, alpha=min(1.0, body_alpha) * 0.9,
+                    zorder=2,
+                )
 
         # Highlight outline for user-selected reads.
         if highlight and r.name in highlight:
-            ax.add_patch(
-                mpatches.Rectangle(
-                    (s, row - row_half),
-                    e - s,
-                    2 * row_half,
-                    facecolor="none",
-                    edgecolor=highlight_color,
-                    lw=1.8,
-                    zorder=5,
+            for bs, be in blocks:
+                ax.add_patch(
+                    mpatches.Rectangle(
+                        (bs, row - row_half),
+                        be - bs,
+                        2 * row_half,
+                        facecolor="none",
+                        edgecolor=highlight_color,
+                        lw=1.8,
+                        zorder=5,
+                    )
                 )
-            )
 
         # Deletions: connecting red line within the read.
         for ds, de in r.deletions:
