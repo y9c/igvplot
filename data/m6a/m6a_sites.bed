@@ -1,7 +1,8 @@
-chrM6A	250	251	m6A	100	+
-chrM6A	350	351	m6A	100	+
-chrM6A	450	451	m6A	100	+
-chrM6A	750	751	m6A	100	+
-chrM6A	800	801	m6A	100	+
-chrM6A	1000	1001	m6A	100	+
-chrM6A	1050	1051	m6A	100	+
+chrM6A	250	251	m6A_fwd	100	+
+chrM6A	350	351	m6A_fwd	100	+
+chrM6A	550	551	m6A_fwd	100	+
+chrM6A	650	651	m6A_fwd	100	+
+chrM6A	800	801	m6A_rev	100	-
+chrM6A	850	851	m6A_rev	100	-
+chrM6A	1020	1021	m6A_rev	100	-
+chrM6A	1070	1071	m6A_rev	100	-

@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Generate synthetic GLORI RNA-seq data for m6A detection.
+"""Generate synthetic GLORI RNA-seq data for m6A detection with two genes.
 
-GLORI chemistry: A residues can be modified to A→G in sequencing reads when m6A is present.
-Regular A stays as A in reads.
+GLORI chemistry:
+- Forward strand gene: A residues at m6A sites → A→G in reads
+- Reverse strand gene: T residues at m6A sites → T→C in reads (reverse complement)
 
 Produces (in ``data/m6a/``):
-    m6a_genome.fa       reference sequence with gene on negative strand
-    m6a_annotation.gb   GenBank with exon/CDS features (reverse strand)
-    m6a_reads.bam       spliced GLORI reads with A→G mutations + .bai
+    m6a_genome.fa       reference sequence with genes on both strands
+    m6a_annotation.gb   GenBank with exon/CDS features (both strands)
+    m6a_reads.bam       spliced GLORI reads with strand-specific mutations + .bai
     m6a_sites.bed       m6A site positions
 
-The transcript has:
-    - Gene on NEGATIVE strand
-    - 3 exons with intron splicing (reads span exon-exon junctions)
-    - Multiple A positions: some are m6A (show A→G), others unmethylated (stay A)
-    - Reads from BOTH forward and reverse strands
+The region chrM6A:200-1100 has:
+    - Forward strand gene (exons: 200-400, 500-700) with m6A sites showing A→G
+    - Reverse strand gene (exons: 750-900, 1000-1100) with m6A sites showing T→C
+    - Paired-end reads from both strands with proper linking
 
 Run:  python scripts/make_m6a_glori_bam.py
 """
@@ -38,47 +38,44 @@ LENGTH = 1200
 SEED = 456
 
 READ_LEN = 120
-COVERAGE = 40
+INSERT_SIZE = 250
+COVERAGE = 30
 
 rng = random.Random(SEED)
 
 # Reference sequence
 seq_chars = "".join(rng.choice("ACGT") for _ in range(LENGTH))
 
-# Gene on NEGATIVE strand: exon1 (200-500), intron1 (500-700), 
-# exon2 (700-850), intron2 (850-950), exon3 (950-1100)
-EXON1_START, EXON1_END = 200, 500
-INTRON1_START, INTRON1_END = 500, 700
-EXON2_START, EXON2_END = 700, 850
-INTRON2_START, INTRON2_END = 850, 950
-EXON3_START, EXON3_END = 950, 1100
+# Forward strand gene: exons at 200-400, 500-700
+FWD_EXON1_START, FWD_EXON1_END = 200, 400
+FWD_EXON2_START, FWD_EXON2_END = 500, 700
 
-GENE_STRAND = -1  # negative strand
+# Reverse strand gene: exons at 750-900, 1000-1100
+REV_EXON1_START, REV_EXON1_END = 750, 900
+REV_EXON2_START, REV_EXON2_END = 1000, 1100
 
-# m6A sites (0-based positions in reference) - these will show A→G in reads
-M6A_SITES = [250, 350, 450, 750, 800, 1000, 1050]
+# m6A sites for forward gene (A positions, will show A→G)
+FWD_M6A_SITES = [250, 350, 550, 650]
 
-# Ensure reference has A at m6A positions
+# m6A sites for reverse gene (T positions, will show T→C)
+REV_M6A_SITES = [800, 850, 1020, 1070]
+
+# Ensure reference has A at forward m6A positions and T at reverse m6A positions
 seq_list = list(seq_chars)
-for pos in M6A_SITES:
+for pos in FWD_M6A_SITES:
     seq_list[pos] = "A"
+for pos in REV_M6A_SITES:
+    seq_list[pos] = "T"
 seq_chars = "".join(seq_list)
 
 
-def make_spliced_read(ref, start, end, strand="+"):
-    """Build a spliced read that may span multiple exon-exon junctions.
+def make_spliced_read(ref, start, end, exons):
+    """Build a spliced read spanning multiple exons.
     
     Returns (query, cigar, ref_start) for the aligned read.
     """
     query_parts = []
     cigar = []
-    
-    # Check which exons this read overlaps
-    exons = [
-        (EXON1_START, EXON1_END),
-        (EXON2_START, EXON2_END),
-        (EXON3_START, EXON3_END),
-    ]
     
     # Find overlapping exons
     overlaps = []
@@ -109,20 +106,11 @@ def make_spliced_read(ref, start, end, strand="+"):
             cigar.append((3, intron_len))  # N operation for intron skip
     
     query = "".join(query_parts)
-    
-    # Reverse complement if reverse strand
-    if strand == "-":
-        query = query.translate(str.maketrans("ACGT", "TGCA"))[::-1]
-    
     return query, cigar, ref_start
 
 
-def apply_glori_conversion(query, ref_positions, m6a_set, mutation_rate=0.8):
-    """Apply GLORI conversion to query sequence.
-    
-    A → G at m6A positions (with mutation_rate probability).
-    Regular A stays as A.
-    """
+def apply_glori_conversion_forward(query, ref_positions, m6a_set, mutation_rate=0.85):
+    """Apply GLORI conversion for forward strand: A→G at m6A positions."""
     result = []
     for i, base in enumerate(query):
         if base == "A" and i < len(ref_positions):
@@ -131,6 +119,21 @@ def apply_glori_conversion(query, ref_positions, m6a_set, mutation_rate=0.8):
                 result.append("G")  # GLORI mutation at m6A
             else:
                 result.append("A")  # unchanged
+        else:
+            result.append(base)
+    return "".join(result)
+
+
+def apply_glori_conversion_reverse(query, ref_positions, m6a_set, mutation_rate=0.85):
+    """Apply GLORI conversion for reverse strand: T→C at m6A positions."""
+    result = []
+    for i, base in enumerate(query):
+        if base == "T" and i < len(ref_positions):
+            ref_pos = ref_positions[i]
+            if ref_pos in m6a_set and rng.random() < mutation_rate:
+                result.append("C")  # GLORI mutation at m6A (T→C on reverse)
+            else:
+                result.append("T")  # unchanged
         else:
             result.append(base)
     return "".join(result)
@@ -162,120 +165,154 @@ def main():
         fh.write(f">{CONTIG}\n{seq_chars}\n")
     pysam.faidx(genome_fa)
 
-    # 2. GenBank annotation - gene on NEGATIVE strand
+    # 2. GenBank annotation - genes on both strands
     features = []
     
-    # Gene (full transcript span, reverse strand)
+    # Forward strand gene
     features.append(SeqFeature(
-        FeatureLocation(EXON1_START, EXON3_END, strand=GENE_STRAND),
+        FeatureLocation(FWD_EXON1_START, FWD_EXON2_END, strand=1),
         type="gene",
-        qualifiers={"label": "gene1", "gene": "GLORI_test"},
+        qualifiers={"label": "FWD_gene", "gene": "GLORI_forward"},
     ))
-    
-    # mRNA (reverse strand)
     features.append(SeqFeature(
-        FeatureLocation(EXON1_START, EXON3_END, strand=GENE_STRAND),
-        type="mRNA",
-        qualifiers={"label": "transcript1", "gene": "GLORI_test"},
+        FeatureLocation(FWD_EXON1_START, FWD_EXON1_END, strand=1),
+        type="exon",
+        qualifiers={"label": "FWD_exon1", "gene": "GLORI_forward"},
+    ))
+    features.append(SeqFeature(
+        FeatureLocation(FWD_EXON2_START, FWD_EXON2_END, strand=1),
+        type="exon",
+        qualifiers={"label": "FWD_exon2", "gene": "GLORI_forward"},
     ))
     
-    # Exons (reverse strand)
-    exons = [
-        (EXON1_START, EXON1_END, "exon1"),
-        (EXON2_START, EXON2_END, "exon2"),
-        (EXON3_START, EXON3_END, "exon3"),
-    ]
-    for exon_start, exon_end, label in exons:
-        features.append(SeqFeature(
-            FeatureLocation(exon_start, exon_end, strand=GENE_STRAND),
-            type="exon",
-            qualifiers={"label": label, "gene": "GLORI_test"},
-        ))
-    
-    # CDS (reverse strand, spans all exons)
-    for exon_start, exon_end, _ in exons:
-        features.append(SeqFeature(
-            FeatureLocation(exon_start, exon_end, strand=GENE_STRAND),
-            type="CDS",
-            qualifiers={"label": "CDS", "gene": "GLORI_test"},
-        ))
+    # Reverse strand gene
+    features.append(SeqFeature(
+        FeatureLocation(REV_EXON1_START, REV_EXON2_END, strand=-1),
+        type="gene",
+        qualifiers={"label": "REV_gene", "gene": "GLORI_reverse"},
+    ))
+    features.append(SeqFeature(
+        FeatureLocation(REV_EXON1_START, REV_EXON1_END, strand=-1),
+        type="exon",
+        qualifiers={"label": "REV_exon1", "gene": "GLORI_reverse"},
+    ))
+    features.append(SeqFeature(
+        FeatureLocation(REV_EXON2_START, REV_EXON2_END, strand=-1),
+        type="exon",
+        qualifiers={"label": "REV_exon2", "gene": "GLORI_reverse"},
+    ))
     
     record = SeqRecord(
         Seq(seq_chars),
         id=CONTIG,
         name=CONTIG,
-        description="m6A GLORI RNA transcript (reverse strand)",
+        description="m6A GLORI RNA with genes on both strands",
         annotations={"molecule_type": "RNA"},
         features=features,
     )
     with open(annot_gb, "w") as fh:
         SeqIO.write([record], fh, "genbank")
 
-    # 3. m6A sites BED
+    # 3. m6A sites BED (all sites, both strands)
     with open(sites_bed, "w") as fh:
-        for pos in M6A_SITES:
-            fh.write(f"{CONTIG}\t{pos}\t{pos+1}\tm6A\t100\t+\n")
+        for pos in FWD_M6A_SITES:
+            fh.write(f"{CONTIG}\t{pos}\t{pos+1}\tm6A_fwd\t100\t+\n")
+        for pos in REV_M6A_SITES:
+            fh.write(f"{CONTIG}\t{pos}\t{pos+1}\tm6A_rev\t100\t-\n")
 
-    # 4. BAM file with spliced GLORI reads
+    # 4. BAM file with spliced GLORI reads from both genes
     header = {
         "HD": {"VN": "1.6", "SO": "coordinate"},
         "SQ": [{"SN": CONTIG, "LN": LENGTH}],
     }
     
-    m6a_set = set(M6A_SITES)
+    fwd_m6a_set = set(FWD_M6A_SITES)
+    rev_m6a_set = set(REV_M6A_SITES)
     reads = []
     
-    # Define introns for checking
-    introns = [
-        (INTRON1_START, INTRON1_END),
-        (INTRON2_START, INTRON2_END),
-    ]
-    
-    # Generate reads spanning transcript region
+    # Generate paired-end reads for forward gene
+    fwd_exons = [(FWD_EXON1_START, FWD_EXON1_END), (FWD_EXON2_START, FWD_EXON2_END)]
     step = READ_LEN // COVERAGE
-    for start in range(EXON1_START - 100, EXON3_END + 100, step):
-        end = start + READ_LEN
-        
-        # Only generate reads that overlap at least one exon
-        overlaps_exon = False
-        for exon_start, exon_end, _ in exons:
-            if start < exon_end and end > exon_start:
-                overlaps_exon = True
-                break
-        
-        if not overlaps_exon:
+    for start in range(FWD_EXON1_START - 50, FWD_EXON2_END + 50, step):
+        # Skip reads entirely in intron
+        if start >= FWD_EXON1_END and start < FWD_EXON2_START:
             continue
         
-        # Skip reads entirely in introns
-        in_intron_only = True
-        for intron_start, intron_end in introns:
-            if start >= intron_start and end <= intron_end:
-                in_intron_only = True
-                break
-        else:
-            in_intron_only = False
-        
-        if in_intron_only:
+        # Read 1 (forward strand)
+        query1, cigar1, ref_start1 = make_spliced_read(seq_chars, start, start + READ_LEN, fwd_exons)
+        if query1 is None:
             continue
         
-        # Generate reads from BOTH strands
-        for strand in ["+", "-"]:
-            query, cigar, ref_start = make_spliced_read(seq_chars, start, end, strand)
-            
-            if query is None:
-                continue
-            
-            # Get reference positions for GLORI conversion
-            ref_positions = get_ref_positions_for_read(cigar, ref_start)
-            
-            # Apply GLORI conversion (A→G at m6A sites)
-            query = apply_glori_conversion(query, ref_positions, m6a_set, mutation_rate=0.85)
+        # Read 2 (reverse strand, mate)
+        mate_start = start + INSERT_SIZE
+        query2, cigar2, ref_start2 = make_spliced_read(seq_chars, mate_start, mate_start + READ_LEN, fwd_exons)
+        
+        # Apply GLORI conversion to forward gene reads (A→G)
+        ref_positions1 = get_ref_positions_for_read(cigar1, ref_start1)
+        query1 = apply_glori_conversion_forward(query1, ref_positions1, fwd_m6a_set)
+        
+        reads.append({
+            "query": query1,
+            "cigar": cigar1,
+            "ref_start": ref_start1,
+            "strand": "+",
+            "mate_start": mate_start if query2 else None,
+            "read_num": 1,
+        })
+        
+        if query2 is not None:
+            ref_positions2 = get_ref_positions_for_read(cigar2, ref_start2)
+            query2 = apply_glori_conversion_reverse(query2, ref_positions2, fwd_m6a_set)
             
             reads.append({
-                "query": query,
-                "cigar": cigar,
-                "ref_start": ref_start,
-                "strand": strand,
+                "query": query2,
+                "cigar": cigar2,
+                "ref_start": ref_start2,
+                "strand": "-",
+                "mate_start": start,
+                "read_num": 2,
+            })
+    
+    # Generate paired-end reads for reverse gene
+    rev_exons = [(REV_EXON1_START, REV_EXON1_END), (REV_EXON2_START, REV_EXON2_END)]
+    for start in range(REV_EXON1_START - 50, REV_EXON2_END + 50, step):
+        # Skip reads entirely in intron
+        if start >= REV_EXON1_END and start < REV_EXON2_START:
+            continue
+        
+        # Read 1 (forward strand)
+        query1, cigar1, ref_start1 = make_spliced_read(seq_chars, start, start + READ_LEN, rev_exons)
+        if query1 is None:
+            continue
+        
+        # Read 2 (reverse strand, mate)
+        mate_start = start + INSERT_SIZE
+        query2, cigar2, ref_start2 = make_spliced_read(seq_chars, mate_start, mate_start + READ_LEN, rev_exons)
+        
+        # Apply GLORI conversion to reverse gene reads (T→C for reverse complement)
+        ref_positions1 = get_ref_positions_for_read(cigar1, ref_start1)
+        query1 = apply_glori_conversion_reverse(query1, ref_positions1, rev_m6a_set)
+        
+        reads.append({
+            "query": query1,
+            "cigar": cigar1,
+            "ref_start": ref_start1,
+            "strand": "+",
+            "mate_start": mate_start if query2 else None,
+            "read_num": 1,
+        })
+        
+        if query2 is not None:
+            ref_positions2 = get_ref_positions_for_read(cigar2, ref_start2)
+            query2 = apply_glori_conversion_forward(query2, ref_positions2, rev_m6a_set)
+            
+            reads.append({
+                "query": query2,
+                "cigar": cigar2,
+                "ref_start": ref_start2,
+                "strand": "-",
+                "mate_start": start,
+                "read_num": 2,
             })
     
     # Write BAM
@@ -286,11 +323,22 @@ def main():
             aln.query_name = f"read_{i:05d}"
             aln.query_sequence = r["query"]
             aln.is_reverse = (r["strand"] == "-")
+            aln.is_read1 = (r["read_num"] == 1)
+            aln.is_read2 = (r["read_num"] == 2)
+            aln.is_paired = True
             aln.mapping_quality = 60
-            aln.reference_id = 0  # Set reference ID to the first (and only) chromosome
+            aln.reference_id = 0
             aln.reference_start = r["ref_start"]
             aln.cigar = r["cigar"]
             aln.query_qualities = pysam.qualitystring_to_array("I" * len(r["query"]))
+            
+            if r["mate_start"] is not None:
+                aln.next_reference_id = 0
+                aln.next_reference_start = r["mate_start"]
+                aln.template_length = r["mate_start"] - r["ref_start"]
+                aln.mate_is_reverse = (r["strand"] == "+")  # opposite of this read
+                aln.is_proper_pair = True
+            
             bam.write(aln)
     
     # Sort and index
@@ -298,16 +346,14 @@ def main():
     os.remove(temp_bam)
     pysam.index(bam_path)
 
-    print("[m6A GLORI] wrote:")
+    print(f"[m6A GLORI] wrote:")
     print(f"  {genome_fa}")
     print(f"  {annot_gb}")
     print(f"  {sites_bed}")
     print(f"  {bam_path}")
     print(f"[m6A GLORI] contig={CONTIG} length={LENGTH} reads={len(reads)}")
-    print("[m6A GLORI] gene strand: NEGATIVE (-)")
-    print(f"[m6A GLORI] m6A sites (A→G): {M6A_SITES}")
-    print(f"[m6A GLORI] exons: {EXON1_START}-{EXON1_END}, {EXON2_START}-{EXON2_END}, {EXON3_START}-{EXON3_END}")
-    print("[m6A GLORI] reads from both +/- strands")
+    print(f"[m6A GLORI] Forward gene m6A sites (A→G): {FWD_M6A_SITES}")
+    print(f"[m6A GLORI] Reverse gene m6A sites (T→C): {REV_M6A_SITES}")
 
 
 if __name__ == "__main__":
