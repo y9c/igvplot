@@ -99,7 +99,10 @@ draws a mate connector and `view_as_pairs` joins a fragment on one row (IGV
 
 Strand-aware m6A / m5C / … markers (`add_base_mods`), reads coloured by the
 modification they span (`color_by="basemod"`), per-base **variant fraction**,
-**modification stoichiometry** and IUPAC **motif** (`DRACH`) tracks.
+**modification stoichiometry** and IUPAC **motif** (`DRACH`) tracks. The gallery
+below shows a GLORI negative-method signal: reads coloured by **strand** while
+`mismatch_colors` highlights the unmodified A→G / T→C conversions in red (the
+m6A-protected positions stay A/T).
 
 ![base modifications](examples/gallery_basemod.png)
 
