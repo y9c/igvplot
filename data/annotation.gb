@@ -7,17 +7,101 @@ SOURCE      .
   ORGANISM  .
             .
 FEATURES             Location/Qualifiers
-     CDS             1001..3200
+     gene            1001..3200
                      /label="geneA"
                      /gene="geneA"
-     CDS             complement(6801..7600)
+     mRNA            1001..3200
+                     /label="geneA_mRNA"
+                     /gene="geneA"
+     exon            1001..1550
+                     /label="geneA_exon"
+                     /gene="geneA"
+     exon            2651..3200
+                     /label="geneA_exon"
+                     /gene="geneA"
+     CDS             1276..2925
+                     /label="geneA"
+                     /gene="geneA"
+     5'UTR           1001..1275
+                     /label="geneA_5UTR"
+                     /gene="geneA"
+     3'UTR           2926..3200
+                     /label="geneA_3UTR"
+                     /gene="geneA"
+     promoter        901..1000
+                     /label="geneA_prom"
+                     /gene="geneA"
+     gene            complement(6801..7600)
                      /label="geneB"
                      /gene="geneB"
-     CDS             13001..15600
+     mRNA            complement(6801..7600)
+                     /label="geneB_mRNA"
+                     /gene="geneB"
+     exon            complement(7401..7600)
+                     /label="geneB_exon"
+                     /gene="geneB"
+     exon            complement(6801..7000)
+                     /label="geneB_exon"
+                     /gene="geneB"
+     CDS             complement(6901..7500)
+                     /label="geneB"
+                     /gene="geneB"
+     5'UTR           complement(7501..7600)
+                     /label="geneB_5UTR"
+                     /gene="geneB"
+     3'UTR           complement(6801..6900)
+                     /label="geneB_3UTR"
+                     /gene="geneB"
+     promoter        complement(7601..7700)
+                     /label="geneB_prom"
+                     /gene="geneB"
+     gene            13001..15600
                      /label="geneC"
                      /gene="geneC"
-     CDS             complement(17001..19300)
+     mRNA            13001..15600
+                     /label="geneC_mRNA"
+                     /gene="geneC"
+     exon            13001..13650
+                     /label="geneC_exon"
+                     /gene="geneC"
+     exon            14951..15600
+                     /label="geneC_exon"
+                     /gene="geneC"
+     CDS             13326..15275
+                     /label="geneC"
+                     /gene="geneC"
+     5'UTR           13001..13325
+                     /label="geneC_5UTR"
+                     /gene="geneC"
+     3'UTR           15276..15600
+                     /label="geneC_3UTR"
+                     /gene="geneC"
+     promoter        12901..13000
+                     /label="geneC_prom"
+                     /gene="geneC"
+     gene            complement(17001..19300)
                      /label="geneD"
+                     /gene="geneD"
+     mRNA            complement(17001..19300)
+                     /label="geneD_mRNA"
+                     /gene="geneD"
+     exon            complement(18726..19300)
+                     /label="geneD_exon"
+                     /gene="geneD"
+     exon            complement(17001..17575)
+                     /label="geneD_exon"
+                     /gene="geneD"
+     CDS             complement(17288..19013)
+                     /label="geneD"
+                     /gene="geneD"
+     5'UTR           complement(19014..19300)
+                     /label="geneD_5UTR"
+                     /gene="geneD"
+     3'UTR           complement(17001..17287)
+                     /label="geneD_3UTR"
+                     /gene="geneD"
+     promoter        complement(19301..19400)
+                     /label="geneD_prom"
                      /gene="geneD"
      variation       7001
                      /label="snp_7000_CT"

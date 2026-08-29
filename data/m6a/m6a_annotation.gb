@@ -1,0 +1,55 @@
+LOCUS       chrM6A                  1200 bp    RNA              UNK 01-JAN-1980
+DEFINITION  m6A GLORI RNA transcript (reverse strand).
+ACCESSION   chrM6A
+VERSION     chrM6A
+KEYWORDS    .
+SOURCE      .
+  ORGANISM  .
+            .
+FEATURES             Location/Qualifiers
+     gene            complement(201..1100)
+                     /label="gene1"
+                     /gene="GLORI_test"
+     mRNA            complement(201..1100)
+                     /label="transcript1"
+                     /gene="GLORI_test"
+     exon            complement(201..500)
+                     /label="exon1"
+                     /gene="GLORI_test"
+     exon            complement(701..850)
+                     /label="exon2"
+                     /gene="GLORI_test"
+     exon            complement(951..1100)
+                     /label="exon3"
+                     /gene="GLORI_test"
+     CDS             complement(201..500)
+                     /label="CDS"
+                     /gene="GLORI_test"
+     CDS             complement(701..850)
+                     /label="CDS"
+                     /gene="GLORI_test"
+     CDS             complement(951..1100)
+                     /label="CDS"
+                     /gene="GLORI_test"
+ORIGIN
+        1 ttttaagtaa ttagcccctt gaaggtcgcc tcggaggcta tttatctacc tcgcgcccgg
+       61 tcaaaaggcc ggaattcgcg aaatttaaaa cgctagtgac gatacatttc ctgattcctt
+      121 gatgaaacgt gtcagcacat ccaaatacta ccctactcgc tgcaagtatc cattttcatt
+      181 tgggtatagc aacaattgag ggcactctct tgggtcgtaa ttcatagatg gaggccttag
+      241 gtgataagca atggacaaaa agagattgtt cattgcctac tgacccttcg cgactaagca
+      301 cacgccttac gcgtaccccc actactagga tcaccctcca cggatctcct atagatacta
+      361 gttacgccgg tcagtcttgg gtgagtccgt gctcacgccg gaccccctga ggcaagcaaa
+      421 ggtggggtct tgactcattg ggatcgtgtt aaataagtgt tgctgccatc ggggcatctg
+      481 cattctcgag aatgccgtcg actagcacgt acctgacggc gacacgtcgt aaccaacgtg
+      541 cgtatggcat tgtctactca tatgaactcg gggtacaggt ctaaccgtat acaaccgatc
+      601 acggattggg aggggtcttt gcaactcact actcaatagt cggttgttac gaccactact
+      661 gagttactat attacgaaga gcccgggtct atgtagctat cgtcgctgaa tttggtaccc
+      721 agcttgaaag tacgaaaatt tgggggttct atgcgctttt gttacccaat ccggaggaag
+      781 tgaatttagg tctagctacc atctactggg cggagtacca ctgagtgaat tcgctcggtg
+      841 ggcagatcgg agtggttgtg ccaagaggga tacctaaagc cttcggccgt ccaagatacc
+      901 tgtttacatg gtttgtatgg cagcttctga cttactgcta ttcgttttcg ttcctgcctt
+      961 atccatgaat tcaatctagt gattcctcct gattgaaacc agcctagact accctaacgc
+     1021 cagcgccctt gtaacccctc aagccacatt acaggagagt aactagaaac ggtgggtcca
+     1081 acccgaccga ccccttactt tgggccggcc gggaattagc gtctggattc ctcccgtagt
+     1141 taaatactta cctggaccaa gtatctgtaa tatactggtc cggaccagaa aggtcatggc
+//

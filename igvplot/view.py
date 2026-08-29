@@ -277,9 +277,9 @@ def _style_gene_labels(ax) -> None:
 
 
 def _style_gene_patches(ax, levels: int = 1) -> None:
-    """Recolour dna_features_viewer's feature bars to the modern gene palette
-    and thicken them so they fill the (clamped) track instead of floating as
-    hairlines inside a tall empty axis."""
+    """Tune dna_features_viewer's feature bars: keep per-type colors but
+    thicken bars to fill the track (they default to hairlines) and soften
+    edges."""
     # The bars are FancyArrowPatches whose thickness is set by
     # ``mutation_scale`` in display units (~14px per unit at 72 dpi), so we
     # size them relative to the final axis height.
@@ -288,7 +288,7 @@ def _style_gene_patches(ax, levels: int = 1) -> None:
     ms = max(1.0, fill * h_in * 72.0 / 14.0)
     for p in ax.patches:
         try:
-            p.set_facecolor(GENE_FACE)
+            # Keep dfv's per-type color; just soften the edge and thicken
             p.set_edgecolor(GENE_EDGE)
             p.set_linewidth(0.5)
             p.set_alpha(0.95)
@@ -363,7 +363,7 @@ class GenomeView:
     def add_features(
         self,
         source=None,
-        weight: float = 1.2,
+        weight: float = 0.9,
         plot_kwargs: Optional[dict] = None,
         feature_types: Optional[set] = None,
         min_feature_length: int = 0,
@@ -419,7 +419,7 @@ class GenomeView:
             levels = _feature_levels(record)
             _style_gene_patches(ax, levels)
             _style_gene_labels(ax)
-            ax.set_ylim(-0.5, (levels - 1) + 0.5)
+            ax.set_ylim(-0.3, (levels - 1) + 0.3)
             # Clip any ruler ticks left behind; the bottom axis owns the ruler.
             ax.set_xticks([])
             ax.tick_params(axis="x", which="both", length=0)

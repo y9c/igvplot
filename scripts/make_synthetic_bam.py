@@ -128,13 +128,88 @@ def main():
     # ---- 2. GenBank annotation ---------------------------------------------
     features = []
     for name, gstart, gend, strand in GENES:
+        # gene (full span, thin line)
         features.append(
             SeqFeature(
                 FeatureLocation(gstart, gend, strand=strand),
+                type="gene",
+                qualifiers={"label": name, "gene": name},
+            )
+        )
+        # mRNA (same span as gene, different type)
+        features.append(
+            SeqFeature(
+                FeatureLocation(gstart, gend, strand=strand),
+                type="mRNA",
+                qualifiers={"label": f"{name}_mRNA", "gene": name},
+            )
+        )
+        # exon structure: split gene into 2-3 exons with introns
+        span = gend - gstart
+        exon_size = span // 4
+        if strand > 0:
+            exon1_start, exon1_end = gstart, gstart + exon_size
+            exon2_start, exon2_end = gend - exon_size, gend
+        else:
+            exon1_start, exon1_end = gend - exon_size, gend
+            exon2_start, exon2_end = gstart, gstart + exon_size
+        
+        for ex_start, ex_end in [(exon1_start, exon1_end), (exon2_start, exon2_end)]:
+            features.append(
+                SeqFeature(
+                    FeatureLocation(ex_start, ex_end, strand=strand),
+                    type="exon",
+                    qualifiers={"label": f"{name}_exon", "gene": name},
+                )
+            )
+        
+        # CDS (coding sequence, typically middle portion)
+        cds_margin = span // 8
+        if strand > 0:
+            cds_start, cds_end = gstart + cds_margin, gend - cds_margin
+        else:
+            cds_start, cds_end = gstart + cds_margin, gend - cds_margin
+        features.append(
+            SeqFeature(
+                FeatureLocation(cds_start, cds_end, strand=strand),
                 type="CDS",
                 qualifiers={"label": name, "gene": name},
             )
         )
+        
+        # UTRs (untranslated regions at ends)
+        if strand > 0:
+            utr5_start, utr5_end = gstart, gstart + cds_margin
+            utr3_start, utr3_end = gend - cds_margin, gend
+        else:
+            utr5_start, utr5_end = gend - cds_margin, gend
+            utr3_start, utr3_end = gstart, gstart + cds_margin
+        features.append(
+            SeqFeature(
+                FeatureLocation(utr5_start, utr5_end, strand=strand),
+                type="5'UTR",
+                qualifiers={"label": f"{name}_5UTR", "gene": name},
+            )
+        )
+        features.append(
+            SeqFeature(
+                FeatureLocation(utr3_start, utr3_end, strand=strand),
+                type="3'UTR",
+                qualifiers={"label": f"{name}_3UTR", "gene": name},
+            )
+        )
+        
+        # promoter region (upstream of gene)
+        promoter_start = max(0, gstart - 100) if strand > 0 else gend
+        promoter_end = gstart if strand > 0 else min(len(seq_chars), gend + 100)
+        features.append(
+            SeqFeature(
+                FeatureLocation(promoter_start, promoter_end, strand=strand),
+                type="promoter",
+                qualifiers={"label": f"{name}_prom", "gene": name},
+            )
+        )
+    
     for label, pos, ftype, note, _count in EVENTS:
         features.append(
             SeqFeature(
