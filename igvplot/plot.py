@@ -337,6 +337,20 @@ def _read_sort_value(r: Read, sort_by: str, base_pos: Optional[int] = None):
     )
 
 
+def _tag_name(mode: str) -> Optional[str]:
+    """Return the BAM tag name when ``mode`` is ``"tag:NAME"``, else None."""
+    if isinstance(mode, str) and mode.lower().startswith("tag:"):
+        name = mode.split(":", 1)[1].strip()
+        return name or None
+    return None
+
+
+def _read_tag_value(r: Read, key: str) -> str:
+    """String value of tag ``key`` on read ``r`` (``__none__`` when absent)."""
+    v = r.tags.get(key)
+    return "__none__" if v is None else str(v)
+
+
 def _read_group_key(r: Read, group_by: str):
     if group_by == "none":
         return None
@@ -356,9 +370,12 @@ def _read_group_key(r: Read, group_by: str):
         return _pair_orientation(r)
     if group_by == "insert":
         return "insert"
+    tag = _tag_name(group_by)
+    if tag is not None:
+        return _read_tag_value(r, tag)
     raise ValueError(
         f"Unknown group_by={group_by!r}; choose from none, strand, readgroup, "
-        "proper, mate, firstOfPairStrand, pairOrientation, insert"
+        "proper, mate, firstOfPairStrand, pairOrientation, insert, tag:NAME"
     )
 
 
@@ -413,6 +430,12 @@ def build_legend_items(
             seen[label] = color
         for label, color in seen.items():
             add((label, color))
+    else:
+        tag = _tag_name(color_by)
+        if tag is not None:
+            groups = sorted({str(r.tags[tag]) for r in reads if r.tags.get(tag) is not None})
+            for i, g in enumerate(groups):
+                add((g, COLOR_SCHEMES["readgroup"][i % len(COLOR_SCHEMES["readgroup"])]))
     return items
 
 def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_sites=None):
@@ -420,7 +443,8 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
 
     Supported ``color_by`` values: 'strand', 'firstOfPairStrand',
     'pairOrientation', 'mapq', 'insert'/'tlen', 'unexpectedPair', 'readgroup',
-    'proper', 'mate', 'none'.
+    'proper', 'mate', 'basemod', 'tag:NAME' (categorical colouring by an
+    auxiliary BAM tag, e.g. ``tag:CB`` for single-cell barcodes), 'none'.
     """
     cmap = mpl.colormaps[colormap]
 
@@ -479,6 +503,22 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
             return lookup[r.read_group]
         return STRAND_COLORS["unknown"]
 
+    def make_tag_colorizer(key: str):
+        """Categorical colouring by an auxiliary BAM tag (e.g. CB barcodes)."""
+        groups = sorted({str(r.tags[key]) for r in reads if r.tags.get(key) is not None})
+        lookup = {
+            g: COLOR_SCHEMES["readgroup"][i % len(COLOR_SCHEMES["readgroup"])]
+            for i, g in enumerate(groups)
+        }
+
+        def color_by_tag(r):
+            v = r.tags.get(key)
+            if v is None:
+                return STRAND_COLORS["unknown"]
+            return lookup[str(v)]
+
+        return color_by_tag
+
     def color_by_proper(r):
         if not r.paired:
             return COLOR_SCHEMES["proper"]["unpaired"]
@@ -500,6 +540,11 @@ def _read_colormap(color_by: str, colormap: str, reads: List[Read], basemod_site
                     color = vals[2] if isinstance(vals, (tuple, list)) and len(vals) > 2 else base_mod_color(vals[1] if isinstance(vals, (tuple, list)) else str(vals))
                     return color
         return STRAND_COLORS["unknown"]
+
+    tag = _tag_name(color_by)
+    if tag is not None:
+        fn = make_tag_colorizer(tag)
+        return lambda i, r: fn(r)
 
     dispatch = {
         "strand": color_by_strand,

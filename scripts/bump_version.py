@@ -3,9 +3,9 @@
 
 Usage::
 
-    python scripts/bump_version.py --patch   # 0.1.0 -> 0.1.1
-    python scripts/bump_version.py --minor   # 0.1.0 -> 0.2.0
-    python scripts/bump_version.py --major   # 0.1.0 -> 1.0.0
+    python scripts/bump_version.py --patch   # 0.0.1 -> 0.0.2
+    python scripts/bump_version.py --minor   # 0.0.1 -> 0.1.0
+    python scripts/bump_version.py --major   # 0.0.1 -> 1.0.0
     python scripts/bump_version.py --set 0.2.0
     python scripts/bump_version.py --patch --dry-run      # show, don't write
     python scripts/bump_version.py --patch --tag          # bump, commit, tag v0.1.1
@@ -60,9 +60,9 @@ def _sub(text: str, regex, new: str) -> str:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     g = ap.add_mutually_exclusive_group()
-    g.add_argument("--patch", action="store_true", help="bump patch (0.1.0 -> 0.1.1)")
-    g.add_argument("--minor", action="store_true", help="bump minor (0.1.0 -> 0.2.0)")
-    g.add_argument("--major", action="store_true", help="bump major (0.1.0 -> 1.0.0)")
+    g.add_argument("--patch", action="store_true", help="bump patch (0.0.1 -> 0.0.2)")
+    g.add_argument("--minor", action="store_true", help="bump minor (0.0.1 -> 0.1.0)")
+    g.add_argument("--major", action="store_true", help="bump major (0.0.1 -> 1.0.0)")
     g.add_argument("--set", metavar="X.Y.Z", help="set an exact version")
     ap.add_argument("--dry-run", action="store_true", help="print changes without writing")
     ap.add_argument("--tag", action="store_true", help="commit both files and tag v<new>")

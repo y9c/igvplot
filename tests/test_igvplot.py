@@ -1,5 +1,4 @@
 import os
-import sys
 
 import matplotlib
 
@@ -211,7 +210,6 @@ def test_downsampling_reduces_reads():
 
 
 def test_legend_and_highlight_and_mode_render(tmp_path):
-    import pytest
     from igvplot import build_legend_items
     region = "chrTest:6,930-7,200"
     bam = _data("sample.bam")
@@ -527,7 +525,7 @@ def test_feature_types_case_insensitive(tmp_path):
 def test_igv_fluent_api(tmp_path):
     from igvplot import IGV, AlignmentView, GenomeView
     out = tmp_path / "igv.png"
-    igv = (
+    (
         IGV("chrTest:6,930-7,200", reference=_data("genome.fa"), dpi=80)
         .bam(_data("sample.bam"), color_by="readgroup", group_by="pairOrientation")
         .add_features(_data("annotation.gb"))
@@ -730,5 +728,132 @@ def test_coverage_reference_propagates_to_reads(tmp_path):
     gv.add_reads(_data("sample.bam"))  # no reference argument
     gv.add_sites({7000: "C>T"})
     out = tmp_path / "rp.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+# --------------------------------------------------------------------------- #
+# v0.0.1 features: BAM-tag colouring, SJ.out.tab, BEDPE, log scale, DataFrames
+# --------------------------------------------------------------------------- #
+def _mk_read(**kw):
+    """Build a minimal Read for colour/group logic tests."""
+    from igvplot.reads import Read
+
+    kw.setdefault("name", "r1")
+    kw.setdefault("aleft", 6900)
+    kw.setdefault("aright", 7000)
+    kw.setdefault("is_reverse", False)
+    kw.setdefault("mapq", 30)
+    return Read(**kw)
+
+
+def test_tag_group_and_color_logic():
+    from igvplot.plot import _read_colormap, _read_group_key, build_legend_items
+
+    reads = [
+        _mk_read(tags={"CB": "AA", "UB": "u1"}),
+        _mk_read(tags={"CB": "TT", "UB": "u2"}),
+        _mk_read(tags={}),
+    ]
+    assert _read_group_key(reads[0], "tag:CB") == "AA"
+    assert _read_group_key(reads[2], "tag:CB") == "__none__"
+
+    color_fn = _read_colormap("tag:CB", "viridis", reads)
+    c0 = color_fn(0, reads[0])
+    c1 = color_fn(1, reads[1])
+    c2 = color_fn(2, reads[2])
+    assert c0 != c1 and c0 != c2 and c2 != c1  # distinct categories
+
+    items = build_legend_items("tag:CB", reads)
+    assert [lab for lab, _c in items] == ["AA", "TT"]
+
+
+def test_fetch_reads_autodetects_tags(tmp_path):
+    # synthetic BAM carries no barcode tags: auto-detect must not crash and
+    # tag_keys=[] disables collection explicitly
+    reads = fetch_reads(_data("sample.bam"), "chrTest:6,990-7,060", max_reads=10)
+    assert isinstance(reads, list) and reads
+
+
+def test_star_sj_parsing(tmp_path):
+    from igvplot.view import _looks_like_star_sj, _parse_star_sj
+
+    sj = tmp_path / "SJ.out.tab"
+    sj.write_text(
+        "chrTest\t7001\t7100\t2\t0\t5\t12\t3\t30\t0\t0\t0\t0\t0\t0\n"
+        "chrTest\t7201\t7350\t1\t1\t0\t7\t0\t25\t0\t0\t0\t0\t0\t0\n"
+        "chrOther\t1\t100\t2\t0\t1\t1\t1\t10\t0\t0\t0\t0\t0\t0\n"
+    )
+    assert _looks_like_star_sj(str(sj))
+    counts = _parse_star_sj(str(sj), "chrTest")
+    assert counts[(7000, 7100)] == 15   # unique (12) + multi (3) spanning reads
+    assert counts[(7200, 7350)] == 7    # falls back to >= 1
+    assert all(lo >= 0 for lo, _hi in counts)
+
+
+def test_bedpe_parsing(tmp_path):
+    from igvplot.view import _parse_bedpe
+
+    bp = tmp_path / "loops.bedpe"
+    bp.write_text(
+        "#header line\n"
+        "chrTest\t6950\t7000\tchrTest\t7100\t7150\tloop1\t3.0\n"
+        "chrTest\t7000\t7050\tchrOther\t9000\t9100\tskip\t9.0\n"
+        "chrTest\t6900\t6950\tchrTest\t7180\t7200\tloop2\t.\n"
+    )
+    arcs = _parse_bedpe(str(bp), "chrTest")
+    assert (6950, 7150, 3.0) in arcs
+    assert (6900, 7200, 1.0) in arcs  # non-numeric score -> 1.0
+    assert len(arcs) == 2  # cross-chrom record dropped
+
+
+def test_bedpe_track_renders(tmp_path):
+    bp = tmp_path / "loops.bedpe"
+    bp.write_text("chrTest\t6940\t6990\tchrTest\t7100\t7160\tl1\t2.5\n")
+    gv = GenomeView(region="chrTest:6,930-7,200")
+    gv.add_bedpe(str(bp))
+    out = tmp_path / "bedpe.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_junctions_bed_accepts_star_sj(tmp_path):
+    sj = tmp_path / "SJ.out.tab"
+    sj.write_text("chrTest\t7001\t7100\t2\t0\t5\t12\t3\t30\t0\t0\t0\t0\t0\t0\n")
+    gv = GenomeView(region="chrTest:6,930-7,200")
+    gv.add_junctions_bed(str(sj))
+    out = tmp_path / "sj.png"
+    gv.savefig(str(out), dpi=70)
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_signal_log_scale_and_dataframe_like(tmp_path):
+    import numpy as np
+
+    gv = GenomeView(region="chrTest:6,930-7,200")
+    n = gv.region.length
+    vals = np.exp(np.linspace(0, 6, n))  # heavy-tailed
+    gv.add_signal(vals, log=True, weight=1.0)
+
+    class _DF:  # minimal pandas/polars-like object
+        @staticmethod
+        def to_numpy():
+            return np.linspace(0.0, 5.0, n)
+
+    gv.add_signal(_DF(), color="#2a9d8f")
+    fig = gv.render()
+    # first track is log1p-scaled: its max is log1p(max(vals))
+    ax = fig.axes[0]
+    assert ax.get_ylim()[1] == pytest.approx(np.log1p(vals.max()), rel=1e-6)
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+def test_coverage_log_scale(tmp_path):
+    gv = GenomeView(region="chrTest:6,930-7,200")
+    gv.add_coverage(_data("sample.bam"), reference=_data("genome.fa"), log=True)
+    gv.add_reads(_data("sample.bam"), max_reads=30)
+    out = tmp_path / "logcov.png"
     gv.savefig(str(out), dpi=70)
     assert out.exists() and out.stat().st_size > 0

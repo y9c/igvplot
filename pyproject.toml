@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "igvplot"
-version = "0.1.0"
+version = "0.0.1"
 description = "IGV-style BAM read pileup, coverage, gene-feature and base-modification plots in matplotlib, built on pysam and dna_features_viewer."
 readme = "README.md"
 requires-python = ">=3.9"

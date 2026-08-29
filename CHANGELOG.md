@@ -4,7 +4,9 @@ All notable changes to **igvplot** are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); this project adheres to
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.0.1] - 2026-08-29
+
+First public release.
 
 ### Changed
 - Visual refresh (modern pyGenomeTracks-style look) across every track:
@@ -21,6 +23,16 @@ All notable changes to **igvplot** are recorded here. The format follows
   now clamped to the feature stack and the bar scaled to fill it.
 
 ### Added
+- Single-cell / long-read colouring: `color_by="tag:CB"` / `group_by="tag:UB"`
+  — categorical read colouring and clustering by any auxiliary BAM tag
+  (simple scalar tags auto-collected, or pass `tag_keys` explicitly).
+- Input formats: junction BED **or STAR `SJ.out.tab`** (auto-detected) for
+  `.add_junctions_bed`; BEDPE arcs via the new `.add_bedpe`; pandas/polars
+  Series accepted anywhere an array is.
+- `log=True` for `.add_coverage` / `.add_signal` (log1p scaling for
+  heavy-tailed coverage and bigwig-style signals).
+- Hi-C heatmap (`.add_hic`), TAD boundaries (`.add_tads`), scale bar, BED
+  annotations, highlight regions.
 - Multi-sample comparison tracks: `.add_reads_overlay`, `.add_sashimi_overlay`
   (ggsashimi-style), `.add_coverage_strands` (strand-specific coverage),
   `.add_junctions_bed` (precomputed junctions), `add_coverage(strand=...)`.

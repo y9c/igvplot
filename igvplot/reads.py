@@ -9,7 +9,7 @@ direct access to read flags, CIGAR and per-base events.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pysam
@@ -70,6 +70,9 @@ class Read:
     mate_start: Optional[int] = None
     insert_size: int = 0
     read_group: Optional[str] = None
+    # optional auxiliary BAM tags (e.g. CB/CR/UB barcodes for single-cell or
+    # long-read data), populated by fetch_reads(tag_keys=...) or auto-detected
+    tags: Dict[str, object] = field(default_factory=dict)
     # soft-clipped bases at each end (5' / 3') of the stored query
     clip_left: int = 0
     clip_right: int = 0
@@ -225,11 +228,32 @@ def junction_counts(
     return {k: v for k, v in counts.items() if v >= min_counts}
 
 
+# Tags excluded from auto-detection: alignment bookkeeping that would only
+# waste memory per read (users can still request them via tag_keys).
+_TAG_BLOCKLIST = {
+    "MD", "NM", "SA", "MC", "MQ", "AS", "XS", "NH", "HI", "IH", "ZF",
+}
+
+
+def _simple_tag_value(seg, key: str):
+    """Return the tag ``key`` from ``seg`` if it is a simple scalar, else None."""
+    try:
+        v = seg.get_tag(key)
+    except KeyError:
+        return None
+    if isinstance(v, (bytes, bytearray, list, tuple)):
+        return None
+    if isinstance(v, (str, int, float)):
+        return v
+    return None
+
+
 def _events_for_segment(
     seg,
     reference: Optional[Reference],
     region: Region,
     collect_bases: bool = False,
+    tag_keys: Optional[set] = None,
 ) -> Optional[Read]:
     """Construct a :class:`Read` with per-base events for ``seg`` within ``region``."""
     if seg.is_unmapped:
@@ -264,6 +288,13 @@ def _events_for_segment(
         read.read_group = seg.get_tag("RG")
     except (KeyError, ValueError):
         read.read_group = None
+
+    # ---- optional auxiliary tags (barcodes etc.) -------------------------
+    if tag_keys:
+        for key in tag_keys:
+            v = _simple_tag_value(seg, key)
+            if v is not None:
+                read.tags[key] = v
 
     # soft-clipped bases at each end
     read.clip_left = seg.query_alignment_start if seg.query_alignment_start else 0
@@ -364,6 +395,7 @@ def fetch_reads(
     sampling_window: int = 0,
     max_per_window: int = 0,
     collect_bases: bool = False,
+    tag_keys: Optional[Iterable[str]] = None,
 ) -> List[Read]:
     """Fetch reads overlapping ``region`` from a sorted, indexed BAM/CRAM.
 
@@ -392,6 +424,13 @@ def fetch_reads(
         Also store the query base at every aligned reference position on each
         read (used by the base-resolution "show all bases" view). Set this only
         for small regions, since it increases memory.
+    tag_keys:
+        Auxiliary BAM tags to collect on every read (e.g. ``["CB", "UB"]`` for
+        single-cell barcodes). When None (default) the simple scalar tags
+        present in the file are auto-detected from a peek at the first reads,
+        excluding alignment bookkeeping tags. Reads fetched via
+        :meth:`igvplot.GenomeView.add_reads` can then be coloured or clustered
+        with ``color_by="tag:CB"`` / ``group_by="tag:UB"``.
     """
     region = Region.from_any(region)
     ref = reference if isinstance(reference, Reference) else Reference(reference)
@@ -399,8 +438,21 @@ def fetch_reads(
 
     reads: List[Read] = []
     seen_bins = {}
+    keys: Optional[set] = set(tag_keys) if tag_keys is not None else None
     try:
         with pysam.AlignmentFile(fspath(bam_path), "rb") as bam:
+            if keys is None:
+                # auto-detect collectable simple tags from a peek at the first
+                # reads in the region (barcodes etc., minus bookkeeping tags)
+                detected: set = set()
+                for probe_seg in bam.fetch(region.chrom, region.start, region.end):
+                    for tag in probe_seg.get_tags():
+                        key = tag[0]
+                        if key not in _TAG_BLOCKLIST and _simple_tag_value(probe_seg, key) is not None:
+                            detected.add(key)
+                    if len(detected) > 32 or probe_seg.reference_start > region.start + 1000:
+                        break
+                keys = detected
             for seg in bam.fetch(region.chrom, region.start, region.end):
                 if seg.is_unmapped or seg.is_supplementary:
                     continue
@@ -418,7 +470,9 @@ def fetch_reads(
                     if n >= max_per_window:
                         continue
                     seen_bins[b] = n + 1
-                read = _events_for_segment(seg, ref, region, collect_bases=collect_bases)
+                read = _events_for_segment(
+                    seg, ref, region, collect_bases=collect_bases, tag_keys=keys
+                )
                 if read is not None:
                     reads.append(read)
                 if max_reads is not None and len(reads) >= max_reads:

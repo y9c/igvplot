@@ -165,6 +165,86 @@ def _parse_junction_bed(bed_path: str, chrom_filter: Optional[str] = None) -> di
     return counts
 
 
+def _looks_like_star_sj(sj_path: str) -> bool:
+    """Heuristic: STAR SJ.out.tab lines have >= 9 tab-separated columns
+    (junction BED files carry at most 8)."""
+    try:
+        with open(sj_path) as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return len(line.split("\t")) >= 9
+    except OSError:
+        pass
+    return False
+
+
+def _parse_star_sj(sj_path: str, chrom_filter: Optional[str] = None) -> dict:
+    """Parse a STAR ``SJ.out.tab`` -> ``{(start, end): count}``.
+
+    STAR columns (0-based): 0 chrom, 1 intron start (1-based inclusive),
+    2 intron end (1-based inclusive), 3 strand (0/1/2), 4 motif, 5 annotated
+    flag, 6 uniquely-mapping spanning reads, 7 multi-mapping spanning reads,
+    8 max spliced overhang. The junction count is the total number of
+    spanning reads (unique + multi).
+    """
+    counts: Dict[Tuple[int, int], int] = {}
+    with open(sj_path) as fh:
+        for line in fh:
+            parts = line.strip().split("\t")
+            if len(parts) < 9 or parts[0] == "chrom":
+                continue
+            if chrom_filter is not None and parts[0] != chrom_filter:
+                continue
+            try:
+                s = int(parts[1]) - 1  # STAR intron start is 1-based
+                e = int(parts[2])  # 1-based inclusive == 0-based exclusive
+                count = int(parts[6]) + int(parts[7])
+            except ValueError:
+                continue
+            if e <= s:
+                continue
+            counts[(s, e)] = counts.get((s, e), 0) + max(count, 1)
+    return counts
+
+
+def _parse_bedpe(
+    bedpe_path: str, chrom_filter: Optional[str] = None
+) -> List[Tuple[int, int, float]]:
+    """Parse a BEDPE file -> ``[(start1, end2, score), ...]`` arcs.
+
+    Only records whose **both** ends lie on ``chrom_filter`` are kept (each
+    arc is drawn within one region). The score (column 8, ``score``) defaults
+    to 1.0 when absent or non-numeric.
+    """
+    arcs: List[Tuple[int, int, float]] = []
+    with open(bedpe_path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 6:
+                continue
+            if chrom_filter is not None and (parts[0] != chrom_filter or parts[3] != chrom_filter):
+                continue
+            try:
+                s1, e1 = int(parts[1]), int(parts[2])
+                s2, e2 = int(parts[4]), int(parts[5])
+            except ValueError:
+                continue
+            score = 1.0
+            if len(parts) > 7:
+                try:
+                    score = float(parts[7])
+                except ValueError:
+                    pass
+            start, end = min(s1, s2), max(e1, e2)
+            if end > start:
+                arcs.append((start, end, score))
+    return arcs
+
+
 def _iupac_to_regex(motif: str) -> str:
     """Translate an IUPAC motif to a regex character class (case-insensitive)."""
     classes = {
@@ -360,13 +440,15 @@ class GenomeView:
         fill_color: str = COVERAGE,
         ylabel: str = "depth",
         ymax: Optional[float] = None,
+        log: bool = False,
     ) -> "GenomeView":
         """Add a per-base coverage track.
 
         Supply exactly one of ``bam_path`` (pileup from an indexed BAM/CRAM),
         ``bigwig`` (a BigWig file, for very large files), or precomputed
         ``depths`` (length == region.length, 0-based). ``ymax`` sets a fixed
-        maximum for the y-axis (None = autoscale).
+        top of the y-axis (None = autoscale); ``log=True`` plots
+        ``log1p(depth)`` for heavy-tailed coverage.
         """
         region = self.region
         if depths is None:
@@ -383,6 +465,9 @@ class GenomeView:
                 )
         else:
             mismatches = None
+        if log:
+            depths = np.log1p(np.clip(np.asarray(depths, dtype=float), 0.0, None))
+            mismatches = None  # mismatch tick heights are in raw-count units
 
         # propagate any reference (path or Reference) so later add_reads /
         # add_sashimi calls reuse it for mismatch detection
@@ -791,13 +876,18 @@ class GenomeView:
         weight: float = 1.2,
         label: str = "junction",
     ) -> "GenomeView":
-        """Draw precomputed splice junctions from a BED file (no BAM needed).
+        """Draw precomputed splice junctions (no BAM needed).
 
-        The BED is ``chrom<TAB>start<TAB>end<TAB>[name]<TAB>[count]``; arc
-        thickness/height scale with the count (default 1).
+        Accepts either a junction BED (``chrom<TAB>start<TAB>end<TAB>[name]
+        <TAB>[count]``) or a STAR ``SJ.out.tab`` (auto-detected by its wider
+        tab-separated format). Arc thickness/height scale with the supporting
+        read count (default 1).
         """
         region = self.region
-        counts = _parse_junction_bed(bed_path, region.chrom)
+        if _looks_like_star_sj(bed_path):
+            counts = _parse_star_sj(bed_path, region.chrom)
+        else:
+            counts = _parse_junction_bed(bed_path, region.chrom)
 
         def _draw(ax, region):
             draw_sashimi_track(ax, counts, region=region, arc_color=arc_color)
@@ -806,21 +896,64 @@ class GenomeView:
         self.tracks.append(Track(weight=weight, kind="junction_bed", draw=_draw))
         return self
 
+    def add_bedpe(
+        self,
+        bedpe_path: str,
+        color: str = SASHIMI,
+        weight: float = 1.8,
+        label: str = "events",
+        min_score: float = 0.0,
+    ) -> "GenomeView":
+        """Add interaction arcs from a BEDPE file (SVs, loops, contacts).
+
+        Records whose **both** ends are on the viewed chromosome are drawn as
+        arcs from start1 to end2; arc height scales with the BEDPE ``score``
+        column (column 8; default 1.0). ``min_score`` filters weak events.
+        """
+        region = self.region
+        arcs = [
+            (s, e, sc)
+            for s, e, sc in _parse_bedpe(bedpe_path, region.chrom)
+            if sc >= min_score
+        ]
+
+        def _draw(ax, region):
+            heights = []
+            for s, e, score in arcs:
+                draw_interaction_arc(
+                    ax, s, e, region, color=color, strength=score, max_height=1.0
+                )
+                heights.append(score)
+            top = 1.0 * max(heights, default=1.0)
+            ax.set_xlim(region.start, region.end)
+            ax.set_ylim(-0.03, top * 1.12 + 0.03)
+            ax.set_yticks([])
+            _tlabel(ax, label)
+
+        self.tracks.append(Track(weight=weight, kind="bedpe", draw=_draw))
+        return self
+
     def add_signal(
         self,
         values,
         color: str = COVERAGE,
         ylabel: str = "signal",
         ymax: Optional[float] = None,
+        log: bool = False,
         weight: float = 1.0,
     ) -> "GenomeView":
         """Add a generic numeric signal track from a 1-D array.
 
         ``values`` has length ``region.length`` and is drawn as a filled
-        stepped area aligned to the region. Useful for any score/profile
-        (e.g. a signal array, a per-base score from a model).
+        stepped area aligned to the region. Pandas/polars Series and other
+        array-likes (anything exposing ``to_numpy``/the buffer protocol) work
+        too. Useful for any score/profile (e.g. a signal array, a per-base
+        score from a model). ``log=True`` plots ``log1p(values)`` — handy for
+        heavy-tailed bigwig-style signals.
         """
         region = self.region
+        if hasattr(values, "to_numpy"):  # pandas/polars Series
+            values = values.to_numpy()
         vals = np.asarray(values, dtype=float)
         if vals.ndim != 1:
             raise ValueError(f"add_signal expects a 1-D array, got {vals.ndim}D")
@@ -828,6 +961,8 @@ class GenomeView:
             raise ValueError(
                 f"signal length {vals.size} != region length {region.length}"
             )
+        if log:
+            vals = np.log1p(np.clip(vals, 0.0, None))
 
         def _draw(ax, region):
             x = np.arange(region.start, region.end, dtype=float)
@@ -1123,6 +1258,7 @@ class GenomeView:
         show_deletion_text: bool = False,
         basemod_sites=None,
         sort_base_pos: Optional[int] = None,
+        tag_keys: Optional[List[str]] = None,
         weight: float = 3.5,
     ) -> "GenomeView":
         """Add an IGV-style aligned-reads pileup track.
@@ -1137,7 +1273,10 @@ class GenomeView:
         ``sampling_window``/``max_per_window`` enable IGV-style downsampling.
         ``show_all_bases`` renders every read base as a letter (base
         resolution, IGV "show all bases"); defaults to automatic for small
-        regions.
+        regions. ``color_by``/``group_by`` also accept ``"tag:NAME"`` to
+        colour/cluster reads by an auxiliary BAM tag (e.g. ``"tag:CB"`` for
+        single-cell barcodes); simple scalar tags are auto-collected, or list
+        them explicitly via ``tag_keys``.
         """
         region = self.region
         if show_all_bases is None:
@@ -1158,6 +1297,7 @@ class GenomeView:
                 sampling_window=sampling_window,
                 max_per_window=max_per_window,
                 collect_bases=collect_bases,
+                tag_keys=tag_keys,
             )
 
         def _draw(ax, region):
