@@ -34,6 +34,17 @@ SITES = os.path.join(DATA, "sites.bed")
 BASEMOD = os.path.join(DATA, "basemods.bed")
 VCF = os.path.join(DATA, "variants.vcf")
 
+# m6A GLORI synthetic data (two genes on opposite strands)
+M6A_BAM = os.path.join(DATA, "m6a", "m6a_reads.bam")
+M6A_REF = os.path.join(DATA, "m6a", "m6a_genome.fa")
+M6A_GB = os.path.join(DATA, "m6a", "m6a_annotation.gb")
+
+# m6A sites: forward gene (A, +) and reverse gene (T, -)
+M6A_SITES = {
+    250: "m6A", 350: "m6A", 550: "m6A", 650: "m6A",   # forward gene (A→G)
+    800: "m6A", 850: "m6A", 1020: "m6A", 1070: "m6A",  # reverse gene (T→C)
+}
+
 HERO_REGION = "chrTest:6,930-7,200"
 
 # show structural gene features only (drops the tiny point 'variation' features,
@@ -128,33 +139,57 @@ def color_mapq():
 
 
 def basemod():
-    """Strand-aware base-modification track with GLORI-style mutations on both strands."""
-    # Use the m6A GLORI synthetic data with genes on both strands
-    M6A_BAM = os.path.join(REPO, "data", "m6a", "m6a_reads.bam")
-    M6A_REF = os.path.join(REPO, "data", "m6a", "m6a_genome.fa")
-    M6A_GB = os.path.join(REPO, "data", "m6a", "m6a_annotation.gb")
-    
-    # Show region with both forward (200-720) and reverse (750-1100) genes
-    # GLORI: A→G = unmodified, A = m6A protected (negative method)
+    """m6A GLORI overview: strand-coloured reads + per-base A→G / T→C conversion.
+
+    GLORI is a *negative* method: the reagent converts every unmodified A→G (and
+    its reverse-strand complement T→C), but an m6A protects its own base so it
+    stays A (or T on the complement). The per-base conversion track therefore
+    dips to ~0% exactly at the m6A sites — the places that keep the reference
+    base. Reads are coloured by strand and the converted bases are shown red.
+    """
     view = (
-        GenomeView(region="chrM6A:150-1150", reference=M6A_REF, figsize=(16, 9))
-        .add_base_mods({
-            # Forward gene m6A sites (A stays as A = m6A protected)
-            250: (1, "m6A"), 350: (1, "m6A"), 550: (1, "m6A"), 650: (1, "m6A"),
-            # Reverse gene m6A sites (T stays as T = m6A protected on complement)
-            800: (-1, "m6A"), 850: (-1, "m6A"), 1020: (-1, "m6A"), 1070: (-1, "m6A"),
-        })
+        GenomeView(
+            region="chrM6A:150-1150",
+            reference=M6A_REF,
+            figsize=(17, 9),
+            title="m6A GLORI — A→G / T→C conversion (negative method)",
+        )
+        .add_variant_fraction(M6A_BAM, reference=M6A_REF, label="A→G / T→C conversion")
         .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
-                   max_reads=150, show_all_bases=False, base_fontsize=6.5, weight=5.0,
+                   max_reads=120, show_all_bases=False, base_fontsize=7.5, weight=6.5,
                    link_mates=True, view_as_pairs=True,
-                   mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})  # Red for GLORI mutations
+                   mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})  # red = converted
         .add_features(M6A_GB, min_feature_length=3)
-        .add_sites({
-            250: "m6A", 350: "m6A", 550: "m6A", 650: "m6A",  # forward gene
-            800: "m6A", 850: "m6A", 1020: "m6A", 1070: "m6A",  # reverse gene
-        })
+        .add_sequence(M6A_REF)
+        .add_sites(M6A_SITES)
     )
-    save(view, "gallery_basemod.png", dpi=120)
+    save(view, "gallery_basemod.png", dpi=130)
+
+
+def basemod_zoom():
+    """Base-resolution zoom at the forward-gene m6A sites.
+
+    Every read base is drawn, so the A→G conversions (red) are readable
+    letter-by-letter while the m6A sites (chrM6A:250, 350) keep their A and are
+    left grey — the protected signal. A colour-coded reference row lines the
+    bottom.
+    """
+    view = (
+        GenomeView(
+            region="chrM6A:235-365",
+            reference=M6A_REF,
+            figsize=(15, 6),
+            title="Zoom — A→G conversions around m6A sites chrM6A:250 & 350",
+        )
+        .add_reads(M6A_BAM, reference=M6A_REF, color_by="strand", group_by="strand",
+                   max_reads=45, show_all_bases=True, base_fontsize=8.5, weight=5.5,
+                   link_mates=True, view_as_pairs=True,
+                   mismatch_colors={"A>G": "#e63946", "T>C": "#e63946"})
+        .add_features(M6A_GB, min_feature_length=3)
+        .add_sequence(M6A_REF)
+        .add_sites({250: "m6A", 350: "m6A"})
+    )
+    save(view, "gallery_basemod_zoom.png", dpi=130)
 
 
 def overlay():
@@ -283,6 +318,7 @@ def main():
     color_readgroup()
     color_mapq()
     basemod()
+    basemod_zoom()
     overlay()
     hic()
     compare()

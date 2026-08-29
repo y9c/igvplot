@@ -99,12 +99,19 @@ draws a mate connector and `view_as_pairs` joins a fragment on one row (IGV
 
 Strand-aware m6A / m5C / … markers (`add_base_mods`), reads coloured by the
 modification they span (`color_by="basemod"`), per-base **variant fraction**,
-**modification stoichiometry** and IUPAC **motif** (`DRACH`) tracks. The gallery
-below shows a GLORI negative-method signal: reads coloured by **strand** while
-`mismatch_colors` highlights the unmodified A→G / T→C conversions in red (the
-m6A-protected positions stay A/T).
+**modification stoichiometry** and IUPAC **motif** (`DRACH`) tracks.
 
-![base modifications](examples/gallery_basemod.png)
+The m6A example below uses **GLORI** (a *negative* method): the reagent converts
+every unmodified A→G (and its reverse-strand complement T→C), but an m6A keeps
+its own base. The per-base **conversion** track dips to ~0% exactly at the m6A
+sites, and reads are coloured by strand with the converted bases in red.
+
+![m6A GLORI: converted reads + per-base A→G / T→C conversion](examples/gallery_basemod.png)
+
+Base-resolution zoom at the forward-gene m6A sites — the A→G conversions are
+readable letter-by-letter while the m6A sites (chrM6A:250 & 350) keep their A:
+
+![m6A GLORI zoom: A→G conversions around m6A sites](examples/gallery_basemod_zoom.png)
 
 ![per-base VAF / mod stoichiometry / motifs](examples/gallery_epigenetics.png)
 
